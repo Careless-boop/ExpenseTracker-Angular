@@ -1,0 +1,3 @@
+# Cloudflare Pages: hand every unmatched path to the SPA shell so Angular's router
+# can resolve deep links (/lists/42) instead of Pages returning a 404.
+/*    /index.html    200
