@@ -124,7 +124,7 @@ export class TabSettlementsComponent {
   protected readonly creating = signal(false);
   protected readonly deleting = signal<Settlement | null>(null);
 
-  protected readonly fmt = money;
+  protected readonly fmt = (n: number) => money(n, this.ctx.currency());
   protected readonly date = shortDate;
 
   constructor() {

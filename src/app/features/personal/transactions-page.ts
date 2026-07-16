@@ -5,7 +5,9 @@ import { Observable, forkJoin } from 'rxjs';
 
 import { PersonalApi } from '../../core/api.service';
 import { ApiError, toApiError } from '../../core/api-error';
+import { currencySymbol } from '../../core/currencies';
 import { dateInputValue, money, shortDate, signedMoney, toIsoDate } from '../../core/format';
+import { UserPrefsService } from '../../core/user-prefs.service';
 import {
   Paginated,
   PersonalCategory,
@@ -191,7 +193,7 @@ function emptyDraft(): Draft {
           <div class="field" style="flex:1;min-width:140px">
             <label class="field__label">Amount</label>
             <div class="money-input" [class.is-invalid]="fieldError('amount')">
-              <div class="money-input__addon">$</div>
+              <div class="money-input__addon">{{ symbol() }}</div>
               <input type="text" inputmode="decimal" [(ngModel)]="d.amount" placeholder="0.00" />
             </div>
             @if (fieldError('amount'); as msg) {
@@ -285,6 +287,7 @@ export class PersonalTransactionsPageComponent {
   private readonly api = inject(PersonalApi);
   private readonly toasts = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
+  private readonly prefs = inject(UserPrefsService);
 
   protected readonly categories = signal<PersonalCategory[]>([]);
   protected readonly page = signal<Paginated<PersonalTransaction> | null>(null);
@@ -304,9 +307,12 @@ export class PersonalTransactionsPageComponent {
     pageSize: 20,
   });
 
-  protected readonly fmt = money;
+  // Personal ledger is shown in the user's currency.
+  protected readonly fmt = (n: number) => money(n, this.prefs.currency());
+  protected readonly symbol = computed(() => currencySymbol(this.prefs.currency()));
   protected readonly date = shortDate;
-  protected readonly signed = signedMoney;
+  protected readonly signed = (n: number, type: TransactionType) =>
+    signedMoney(n, type, this.prefs.currency());
 
   constructor() {
     // The dashboard's category rows drill in here pre-filtered.

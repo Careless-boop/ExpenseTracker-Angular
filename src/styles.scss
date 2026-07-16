@@ -1171,6 +1171,43 @@ textarea.input {
   }
 }
 
+/* neither red nor green: the split is short, but the rest is being divided */
+.reconcile--warn {
+  background: var(--warn-bar);
+  border-top: 1px solid var(--warn-border);
+
+  .reconcile__text,
+  .reconcile__sum {
+    color: var(--warn-ink);
+  }
+
+  .reconcile__dot {
+    background: var(--grad-coin);
+    border: 1px solid var(--grad-gold-border);
+    color: var(--coin-ink);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* the "split the rest" switch that turns a red split into a yellow one */
+.split-rest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--row-border);
+  background: var(--panel-head);
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-2);
+  cursor: pointer;
+
+  span {
+    font-weight: normal;
+    color: var(--muted);
+  }
+}
+
 /* ---------- Dialogs ------------------------------------------------------- */
 .scrim {
   position: fixed;

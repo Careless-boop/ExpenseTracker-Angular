@@ -7,6 +7,7 @@ import { toApiError } from '../../core/api-error';
 import { longDate, money, toIsoDate } from '../../core/format';
 import { CategoryBreakdown, DashboardSummary, TransactionType } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
+import { UserPrefsService } from '../../core/user-prefs.service';
 import { CategoryIconComponent, EmptyStateComponent } from '../../shared/ui';
 
 type PresetKey = 'this-month' | 'last-month' | 'last-3-months' | 'custom';
@@ -350,6 +351,7 @@ function presetPeriod(key: PresetKey): Period {
 export class DashboardPageComponent {
   private readonly api = inject(DashboardApi);
   private readonly toasts = inject(ToastService);
+  private readonly prefs = inject(UserPrefsService);
 
   protected readonly preset = signal<PresetKey>('this-month');
   protected readonly period = signal<Period>(presetPeriod('this-month'));
@@ -358,7 +360,8 @@ export class DashboardPageComponent {
   protected readonly summary = signal<DashboardSummary | null>(null);
   protected readonly breakdown = signal<CategoryBreakdown | null>(null);
 
-  protected readonly fmt = money;
+  // Personal ledger is shown in the user's currency.
+  protected readonly fmt = (n: number) => money(n, this.prefs.currency());
 
   /** A brand-new user has no transactions at all — not just none in this period. */
   protected readonly isFirstRun = computed(() => {

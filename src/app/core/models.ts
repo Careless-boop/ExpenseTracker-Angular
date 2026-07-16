@@ -106,6 +106,7 @@ export interface ExpenseList {
   name: string;
   description: string | null;
   coverImage: string | null;
+  currency: string;
   memberCount: number;
   transactionCount: number;
   currentUserRole: ExpenseListRole;
@@ -128,6 +129,7 @@ export interface ExpenseListDetail {
   name: string;
   description: string | null;
   coverImage: string | null;
+  currency: string;
   members: ExpenseListMember[];
   transactionCount: number;
   totalExpenses: number;
@@ -170,6 +172,8 @@ export interface ExpenseListTransaction {
   createdAt: string;
   participants: ExpenseListParticipant[];
   calculatedShares: Record<string, number>;
+  /** Every participant is custom and the shortfall was divided equally between them. */
+  splitRemainder: boolean;
 }
 
 /** What the API accepts for a participant: a null share means "split equally". */
@@ -186,6 +190,7 @@ export interface SaveListTransaction {
   paidByMemberId: string;
   categoryId: string | null;
   participants: ParticipantInput[] | null;
+  splitRemainder: boolean;
 }
 
 /* ---------- Balances & settlements ---------------------------------------- */
@@ -234,4 +239,5 @@ export interface Settlement {
 
 export interface UserSettings {
   syncClosedListsToPersonal: boolean;
+  currency: string;
 }

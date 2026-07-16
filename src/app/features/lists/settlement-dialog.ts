@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 
 import { ExpenseListApi } from '../../core/api.service';
 import { ApiError, toApiError } from '../../core/api-error';
+import { currencySymbol } from '../../core/currencies';
 import { money } from '../../core/format';
 import { ToastService } from '../../core/toast.service';
 import { DialogComponent } from '../../shared/dialog';
@@ -54,7 +55,7 @@ export interface SettlementSeed {
       <div class="field">
         <label class="field__label">Amount</label>
         <div class="money-input" [class.is-invalid]="fieldError('amount')">
-          <div class="money-input__addon">$</div>
+          <div class="money-input__addon">{{ symbol() }}</div>
           <input
             type="text"
             inputmode="decimal"
@@ -114,7 +115,8 @@ export class SettlementDialog {
   protected readonly busy = signal(false);
   protected readonly error = signal<ApiError | null>(null);
 
-  protected readonly fmt = money;
+  protected readonly fmt = (n: number) => money(n, this.ctx.currency());
+  protected readonly symbol = computed(() => currencySymbol(this.ctx.currency()));
 
   /** You, plus every placeholder — nobody else. */
   protected readonly payers = computed(() => {

@@ -1,28 +1,40 @@
 import { ExpenseListRole, TransactionType } from './models';
 
 /**
- * There is no currency in the data model, so one display currency is applied
- * globally (the mockups use USD).
+ * Currency is a display attribute — amounts are bare decimals and nothing is
+ * converted. The personal ledger uses the user's currency; each expense list
+ * uses its own. Formatters are cached per code so we don't rebuild them per row.
  */
-const CURRENCY = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const FORMATTERS = new Map<string, Intl.NumberFormat>();
 
-export function money(amount: number): string {
-  return CURRENCY.format(Math.abs(amount ?? 0));
+function formatter(currency: string): Intl.NumberFormat {
+  let f = FORMATTERS.get(currency);
+  if (!f) {
+    f = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      // narrowSymbol renders ₴ / £ / ₪ rather than the ISO code, matching our pickers.
+      currencyDisplay: 'narrowSymbol',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    FORMATTERS.set(currency, f);
+  }
+  return f;
+}
+
+export function money(amount: number, currency = 'USD'): string {
+  return formatter(currency).format(Math.abs(amount ?? 0));
 }
 
 /** "+$120.00" / "−$187.40" — the design leans on the sign to read type at a glance. */
-export function signedMoney(amount: number, type: TransactionType): string {
-  return `${type === 'Income' ? '+' : '−'}${money(amount)}`;
+export function signedMoney(amount: number, type: TransactionType, currency = 'USD'): string {
+  return `${type === 'Income' ? '+' : '−'}${money(amount, currency)}`;
 }
 
-export function signedBalance(balance: number): string {
-  if (balance === 0) return money(0);
-  return `${balance > 0 ? '+' : '−'}${money(balance)}`;
+export function signedBalance(balance: number, currency = 'USD'): string {
+  if (balance === 0) return money(0, currency);
+  return `${balance > 0 ? '+' : '−'}${money(balance, currency)}`;
 }
 
 export function shortDate(iso: string): string {

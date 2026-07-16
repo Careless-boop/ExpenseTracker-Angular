@@ -154,13 +154,14 @@ export class ExpenseListApi {
     name: string;
     description: string | null;
     coverImage: string | null;
+    currency: string;
   }): Observable<CreatedId> {
     return this.http.post<CreatedId>(`${API}/expense-lists`, body);
   }
 
   update(
     id: string,
-    body: { name: string; description: string | null; coverImage: string | null },
+    body: { name: string; description: string | null; coverImage: string | null; currency: string },
   ): Observable<void> {
     return this.http.put<void>(`${API}/expense-lists/${id}`, { id, ...body });
   }

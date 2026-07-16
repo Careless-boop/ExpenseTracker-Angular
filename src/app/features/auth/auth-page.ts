@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiError, toApiError } from '../../core/api-error';
 import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
+import { UserPrefsService } from '../../core/user-prefs.service';
 
 const PASSWORD_RULES: { label: string; test: (v: string) => boolean }[] = [
   { label: 'At least 8 characters', test: (v) => v.length >= 8 },
@@ -180,6 +181,7 @@ export class AuthPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly prefs = inject(UserPrefsService);
   protected readonly theme = inject(ThemeService);
 
   protected readonly isRegister = signal(this.route.snapshot.data['mode'] === 'register');
@@ -212,6 +214,7 @@ export class AuthPageComponent {
 
     request.subscribe({
       next: () => {
+        this.prefs.refresh();
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/dashboard';
         void this.router.navigateByUrl(returnUrl);
       },

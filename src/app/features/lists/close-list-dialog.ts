@@ -97,7 +97,7 @@ export class CloseListDialog {
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);
 
-  protected readonly fmt = money;
+  protected readonly fmt = (n: number) => money(n, this.ctx.currency());
 
   constructor() {
     this.api.balances(this.ctx.id()).subscribe({

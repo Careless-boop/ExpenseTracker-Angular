@@ -127,8 +127,8 @@ export class TabBalancesComponent {
   protected readonly loading = signal(true);
   protected readonly seed = signal<SettlementSeed | null>(null);
 
-  protected readonly fmt = money;
-  protected readonly signed = signedBalance;
+  protected readonly fmt = (n: number) => money(n, this.ctx.currency());
+  protected readonly signed = (n: number) => signedBalance(n, this.ctx.currency());
 
   constructor() {
     queueMicrotask(() => this.load());

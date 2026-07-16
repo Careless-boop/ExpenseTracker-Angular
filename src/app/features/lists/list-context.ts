@@ -24,6 +24,8 @@ export class ListContext {
   readonly role = computed(() => this.detail()?.currentUserRole ?? 'Viewer');
   readonly isClosed = computed(() => !!this.detail()?.closedAt);
   readonly isOwner = computed(() => this.role() === 'Owner');
+  /** Each list has its own currency; amounts here are shown in it. */
+  readonly currency = computed(() => this.detail()?.currency ?? 'USD');
 
   /** A closed list rejects every write, so writes are gated on open + role. */
   readonly canEdit = computed(

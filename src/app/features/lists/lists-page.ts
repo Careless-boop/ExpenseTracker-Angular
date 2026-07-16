@@ -4,9 +4,11 @@ import { Router, RouterLink } from '@angular/router';
 
 import { ExpenseListApi } from '../../core/api.service';
 import { ApiError, toApiError } from '../../core/api-error';
+import { CURRENCIES } from '../../core/currencies';
 import { longDate } from '../../core/format';
 import { ExpenseList } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
+import { UserPrefsService } from '../../core/user-prefs.service';
 import { DialogComponent } from '../../shared/dialog';
 import { EmptyStateComponent } from '../../shared/ui';
 
@@ -121,6 +123,16 @@ import { EmptyStateComponent } from '../../shared/ui';
           <input class="input" type="url" maxlength="500" [(ngModel)]="coverImage" />
         </div>
 
+        <div class="field">
+          <label class="field__label">Currency</label>
+          <select class="select" [ngModel]="currency()" (ngModelChange)="currency.set($event)">
+            @for (c of currencies; track c.code) {
+              <option [value]="c.code">{{ c.code }} · {{ c.name }} ({{ c.symbol }})</option>
+            }
+          </select>
+          <div class="hint">Defaults to your currency. Amounts aren't converted.</div>
+        </div>
+
         <div class="dialog__foot">
           <button class="btn" type="button" (click)="creating.set(false)">Cancel</button>
           <button
@@ -201,6 +213,9 @@ export class ListsPageComponent {
   private readonly api = inject(ExpenseListApi);
   private readonly toasts = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly prefs = inject(UserPrefsService);
+
+  protected readonly currencies = CURRENCIES;
 
   protected readonly lists = signal<ExpenseList[]>([]);
   protected readonly loading = signal(true);
@@ -211,6 +226,7 @@ export class ListsPageComponent {
   protected readonly name = signal('');
   protected readonly description = signal('');
   protected readonly coverImage = signal('');
+  protected readonly currency = signal('USD');
 
   protected readonly date = longDate;
 
@@ -240,6 +256,7 @@ export class ListsPageComponent {
     this.name.set('');
     this.description.set('');
     this.coverImage.set('');
+    this.currency.set(this.prefs.currency());
     this.creating.set(true);
   }
 
@@ -252,6 +269,7 @@ export class ListsPageComponent {
         name: this.name().trim(),
         description: this.description().trim() || null,
         coverImage: this.coverImage().trim() || null,
+        currency: this.currency(),
       })
       .subscribe({
         next: ({ id }) => {

@@ -2,11 +2,13 @@ import { Component, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-dialog',
+  // Closes only on the ✕ button or Escape — never on a backdrop click, so a stray
+  // click outside a half-filled form can't discard it.
   host: {
     '(document:keydown.escape)': 'closed.emit()',
   },
   template: `
-    <div class="scrim" (click)="onScrim($event)">
+    <div class="scrim">
       <div
         class="dialog"
         [class.dialog--sm]="size() === 'sm'"
@@ -31,12 +33,6 @@ export class DialogComponent {
   readonly title = input.required<string>();
   readonly size = input<'sm' | 'md' | 'lg'>('md');
   readonly closed = output<void>();
-
-  protected onScrim(event: MouseEvent): void {
-    if ((event.target as HTMLElement).classList.contains('scrim')) {
-      this.closed.emit();
-    }
-  }
 }
 
 /** Destructive / irreversible confirmations. Gold = irreversible, red = destructive. */

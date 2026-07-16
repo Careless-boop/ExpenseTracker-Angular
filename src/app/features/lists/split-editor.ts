@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { ExpenseListApi } from '../../core/api.service';
 import { ApiError, toApiError } from '../../core/api-error';
+import { currencySymbol } from '../../core/currencies';
 import { dateInputValue, money, toIsoDate } from '../../core/format';
 import {
   ExpenseListCategory,
@@ -38,7 +39,7 @@ interface Row {
         <div class="field" style="flex:1;min-width:140px">
           <label class="field__label">Amount</label>
           <div class="money-input" [class.is-invalid]="fieldError('amount')">
-            <div class="money-input__addon">$</div>
+            <div class="money-input__addon">{{ symbol() }}</div>
             <input
               type="text"
               inputmode="decimal"
@@ -188,7 +189,7 @@ interface Row {
 
               @if (row.mode === 'custom') {
                 <div class="money-input money-input--sm">
-                  <div class="money-input__addon">$</div>
+                  <div class="money-input__addon">{{ symbol() }}</div>
                   <input
                     type="text"
                     inputmode="decimal"
@@ -200,8 +201,16 @@ interface Row {
 
               <!-- the real per-person number, never a rounded average -->
               <div class="split__share">
-                @if (split().state === 'ok') {
-                  {{ type() === 'Income' ? 'gets' : 'owes' }} {{ fmt(shareOf(row.memberId)) }}
+                @if (submittable()) {
+                  <div>
+                    {{ type() === 'Income' ? 'gets' : 'owes' }} {{ fmt(shareOf(row.memberId)) }}
+                  </div>
+                  <!-- keep the custom amount visible next to the rest it absorbed -->
+                  @if (extraOf(row.memberId); as extra) {
+                    <div class="split__breakdown">
+                      {{ fmt(+row.amount) }} + {{ fmt(extra) }}
+                    </div>
+                  }
                 } @else {
                   —
                 }
@@ -212,13 +221,37 @@ interface Row {
           </div>
         }
 
+        <!--
+          Offered only when every participant is custom — with an equal-share participant
+          present the rest already goes to them, and the API rejects the flag.
+        -->
+        @if (split().allCustom && total() > 0) {
+          <label class="split-rest">
+            <input
+              class="checkbox"
+              type="checkbox"
+              [checked]="splitRemainder()"
+              (change)="toggleSplitRemainder()"
+            />
+            Split the rest between them
+            <span>— divide whatever the custom shares don't cover</span>
+          </label>
+        }
+
         <!-- running reconciliation; submit stays disabled until it balances -->
         @if (split(); as s) {
-          <div class="reconcile" [class.reconcile--ok]="s.state === 'ok'" [class.reconcile--bad]="s.state !== 'ok'">
-            <div class="reconcile__dot">{{ s.state === 'ok' ? '✓' : '!' }}</div>
+          <div
+            class="reconcile"
+            [class.reconcile--ok]="s.state === 'ok'"
+            [class.reconcile--warn]="s.state === 'partial'"
+            [class.reconcile--bad]="s.state === 'short' || s.state === 'over'"
+          >
+            <div class="reconcile__dot">
+              {{ s.state === 'ok' ? '✓' : s.state === 'partial' ? '≈' : '!' }}
+            </div>
             <div class="reconcile__text">{{ reconcileText() }}</div>
             <div class="reconcile__sum">
-              {{ fmt(s.customTotal + (s.state === 'ok' ? s.remaining : 0)) }} / {{ fmt(total()) }}
+              {{ fmt(submittable() ? total() : s.customTotal) }} / {{ fmt(total()) }}
             </div>
           </div>
         }
@@ -286,6 +319,14 @@ interface Row {
       font-weight: bold;
       color: var(--accent);
     }
+
+    .split__breakdown {
+      margin-top: 2px;
+      font-size: 10px;
+      font-weight: normal;
+      color: var(--muted);
+      white-space: nowrap;
+    }
   `,
 })
 export class SplitEditorComponent {
@@ -306,11 +347,13 @@ export class SplitEditorComponent {
   protected readonly categoryId = signal<string | null>(null);
   protected readonly paidByMemberId = signal<string>('');
   protected readonly rows = signal<Row[]>([]);
+  protected readonly splitRemainder = signal(false);
 
   protected readonly busy = signal(false);
   protected readonly error = signal<ApiError | null>(null);
 
-  protected readonly fmt = money;
+  protected readonly fmt = (n: number) => money(n, this.ctx.currency());
+  protected readonly symbol = computed(() => currencySymbol(this.ctx.currency()));
 
   protected readonly total = computed(() => {
     const n = Number(this.amount());
@@ -326,8 +369,15 @@ export class SplitEditorComponent {
         customShareAmount: r.mode === 'custom' ? Number(r.amount) || 0 : null,
       })),
       this.total(),
+      this.splitRemainder(),
     ),
   );
+
+  /** 'partial' is a legitimate split too — the shortfall is being divided, not ignored. */
+  protected readonly submittable = computed(() => {
+    const state = this.split().state;
+    return state === 'ok' || state === 'partial';
+  });
 
   protected readonly canSave = computed(
     () =>
@@ -335,35 +385,40 @@ export class SplitEditorComponent {
       this.total() > 0 &&
       !!this.paidByMemberId() &&
       this.included().length > 0 &&
-      this.split().state === 'ok' &&
+      this.submittable() &&
       // custom amounts must each be > 0
       this.included().every((r) => r.mode !== 'custom' || Number(r.amount) > 0),
   );
 
   protected readonly reconcileText = computed(() => {
     const s = this.split();
-    const customs = this.included().filter((r) => r.mode === 'custom');
+    const included = this.included();
+    const customs = included.filter((r) => r.mode === 'custom');
+    const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 
     if (this.total() <= 0) return 'Enter an amount to split.';
-    if (!this.included().length) return 'Pick at least one person to split between.';
+    if (!included.length) return 'Pick at least one person to split between.';
 
     if (s.state === 'over') {
       return `${this.fmt(s.over)} over — custom shares exceed the total.`;
     }
     if (s.state === 'short') {
-      return `${this.fmt(Math.abs(s.remaining))} short — every share is custom, so they must sum to exactly the total.`;
+      return `${this.fmt(Math.abs(s.remaining))} short — either make the custom shares sum to the total, or split the rest between them.`;
+    }
+    if (s.state === 'partial') {
+      return `${this.fmt(s.remaining)} left over — it will be split equally between ${people(
+        included.length,
+      )}, on top of their custom shares.`;
     }
     if (!customs.length) {
-      return `Reconciled — split equally between ${this.included().length} ${
-        this.included().length === 1 ? 'person' : 'people'
-      }.`;
+      return `Reconciled — split equally between ${people(included.length)}.`;
     }
     if (s.equalCount === 0) {
       return 'Reconciled — custom shares account for the whole amount.';
     }
     return `Reconciled — custom shares ${this.fmt(s.customTotal)}, remaining ${this.fmt(
       s.remaining,
-    )} split equally between ${s.equalCount} ${s.equalCount === 1 ? 'person' : 'people'}.`;
+    )} split equally between ${people(s.equalCount)}.`;
   });
 
   constructor() {
@@ -382,6 +437,7 @@ export class SplitEditorComponent {
       this.description.set(tx.description ?? '');
       this.categoryId.set(tx.categoryId);
       this.paidByMemberId.set(tx.paidByMemberId);
+      this.splitRemainder.set(tx.splitRemainder);
 
       const byId = new Map(tx.participants.map((p) => [p.memberId, p]));
       this.rows.set(
@@ -416,6 +472,7 @@ export class SplitEditorComponent {
         amount: '',
       })),
     );
+    this.splitRemainder.set(false);
   }
 
   protected toggle(memberId: string): void {
@@ -440,8 +497,17 @@ export class SplitEditorComponent {
     );
   }
 
+  protected toggleSplitRemainder(): void {
+    this.splitRemainder.update((on) => !on);
+  }
+
   protected shareOf(memberId: string): number {
     return this.split().shares[memberId] ?? 0;
+  }
+
+  /** The slice of the leftover this member absorbed on top of their custom amount. */
+  protected extraOf(memberId: string): number | null {
+    return this.split().extras[memberId] ?? null;
   }
 
   protected isMe(memberId: string): boolean {
@@ -467,6 +533,8 @@ export class SplitEditorComponent {
       paidByMemberId: this.paidByMemberId(),
       categoryId: this.categoryId(),
       participants,
+      // the API rejects the flag unless every participant carries a custom share
+      splitRemainder: this.splitRemainder() && this.split().allCustom,
     };
 
     const tx = this.editing();

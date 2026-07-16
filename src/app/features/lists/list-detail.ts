@@ -1,11 +1,14 @@
 import { Component, inject, input, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { ExpenseListApi } from '../../core/api.service';
-import { toApiError } from '../../core/api-error';
+import { ApiError, toApiError } from '../../core/api-error';
+import { CURRENCIES } from '../../core/currencies';
 import { longDate, money } from '../../core/format';
+import { ExpenseListDetail } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
-import { ConfirmComponent } from '../../shared/dialog';
+import { ConfirmComponent, DialogComponent } from '../../shared/dialog';
 import { AvatarComponent } from '../../shared/ui';
 import { CloseListDialog } from './close-list-dialog';
 import { ListContext } from './list-context';
@@ -14,11 +17,13 @@ import { ListContext } from './list-context';
   selector: 'app-list-detail',
   providers: [ListContext],
   imports: [
+    FormsModule,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
     AvatarComponent,
     ConfirmComponent,
+    DialogComponent,
     CloseListDialog,
   ],
   template: `
@@ -47,6 +52,7 @@ import { ListContext } from './list-context';
               @if (ctx.isClosed()) {
                 <span class="badge badge--closed">Closed</span>
               }
+              <span class="badge badge--soft" title="This list's currency">{{ list.currency }}</span>
             </div>
             @if (list.description) {
               <div class="hint" style="margin-top:4px">{{ list.description }}</div>
@@ -74,6 +80,7 @@ import { ListContext } from './list-context';
 
           @if (ctx.canManage()) {
             <div class="row">
+              <button class="btn btn--sm" type="button" (click)="openEdit(list)">Edit…</button>
               <button class="btn btn--gold btn--sm" type="button" (click)="closing.set(true)">
                 Close list…
               </button>
@@ -155,6 +162,62 @@ import { ListContext } from './list-context';
       }
     </div>
 
+    @if (editing()) {
+      <app-dialog title="Edit list" size="sm" (closed)="editing.set(false)">
+        <div class="field">
+          <label class="field__label">Name <span>(≤ 200)</span></label>
+          <input
+            class="input"
+            [class.is-invalid]="editError('name')"
+            type="text"
+            maxlength="200"
+            [ngModel]="editName()"
+            (ngModelChange)="editName.set($event)"
+          />
+          @if (editError('name'); as msg) {
+            <div class="field__error">{{ msg }}</div>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field__label">Description <span>(≤ 1000, optional)</span></label>
+          <textarea
+            class="input"
+            rows="3"
+            maxlength="1000"
+            [ngModel]="editDescription()"
+            (ngModelChange)="editDescription.set($event)"
+          ></textarea>
+        </div>
+
+        <div class="field">
+          <label class="field__label">Currency</label>
+          <select
+            class="select"
+            [ngModel]="editCurrency()"
+            (ngModelChange)="editCurrency.set($event)"
+          >
+            @for (c of currencies; track c.code) {
+              <option [value]="c.code">{{ c.code }} · {{ c.name }} ({{ c.symbol }})</option>
+            }
+          </select>
+          <div class="hint">Changes how this list's amounts are shown. Values aren't converted.</div>
+        </div>
+
+        <div class="dialog__foot">
+          <button class="btn" type="button" (click)="editing.set(false)">Cancel</button>
+          <button
+            class="btn btn--primary btn--wide"
+            type="button"
+            [disabled]="busy() || !editName().trim()"
+            (click)="saveEdit()"
+          >
+            Save changes
+          </button>
+        </div>
+      </app-dialog>
+    }
+
     @if (closing()) {
       <app-close-list-dialog (closed)="closing.set(false)" (done)="afterClose()" />
     }
@@ -215,12 +278,64 @@ export class ListDetailComponent {
   protected readonly deleting = signal(false);
   protected readonly busy = signal(false);
 
-  protected readonly fmt = money;
+  protected readonly currencies = CURRENCIES;
+  protected readonly editing = signal(false);
+  protected readonly editName = signal('');
+  protected readonly editDescription = signal('');
+  protected readonly editCurrency = signal('USD');
+  protected readonly editErrors = signal<ApiError | null>(null);
+
+  protected readonly fmt = (n: number) => money(n, this.ctx.currency());
   protected readonly date = longDate;
 
   constructor() {
     // `id` is a routed input; read it once the route is resolved.
     queueMicrotask(() => this.ctx.load(this.id()));
+  }
+
+  protected openEdit(list: ExpenseListDetail): void {
+    this.editErrors.set(null);
+    this.editName.set(list.name);
+    this.editDescription.set(list.description ?? '');
+    this.editCurrency.set(list.currency);
+    this.editing.set(true);
+  }
+
+  protected editError(field: string): string | null {
+    return this.editErrors()?.fieldErrors[field]?.[0] ?? null;
+  }
+
+  protected saveEdit(): void {
+    const list = this.ctx.detail();
+    if (!list || !this.editName().trim()) return;
+
+    this.busy.set(true);
+    this.editErrors.set(null);
+
+    this.api
+      .update(this.ctx.id(), {
+        name: this.editName().trim(),
+        description: this.editDescription().trim() || null,
+        // cover image isn't edited here; preserve whatever the list already has
+        coverImage: list.coverImage,
+        currency: this.editCurrency(),
+      })
+      .subscribe({
+        next: () => {
+          this.busy.set(false);
+          this.editing.set(false);
+          this.toasts.ok('List updated.');
+          this.ctx.refresh();
+        },
+        error: (err: unknown) => {
+          this.busy.set(false);
+          const apiError = toApiError(err);
+          this.editErrors.set(apiError);
+          if (!Object.keys(apiError.fieldErrors).length) {
+            this.toasts.error(apiError.message);
+          }
+        },
+      });
   }
 
   protected claim(mockMemberId: string, name: string): void {

@@ -9,6 +9,7 @@ import {
   ExpenseListTransaction,
   Paginated,
   TransactionFilters,
+  TransactionType,
 } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { ConfirmComponent } from '../../shared/dialog';
@@ -142,6 +143,12 @@ import { SplitEditorComponent } from './split-editor';
                   {{ t.participants.length }}
                   {{ t.participants.length === 1 ? 'person' : 'people' }}
                 </span>
+                <!-- custom shares with the leftover divided back over them -->
+                @if (t.splitRemainder) {
+                  <span class="badge badge--soft" [title]="splitRestTitle(t)">
+                    custom + rest split
+                  </span>
+                }
               </div>
             </div>
 
@@ -233,9 +240,10 @@ export class TabTransactionsComponent {
     pageSize: 20,
   });
 
-  protected readonly fmt = money;
+  protected readonly fmt = (n: number) => money(n, this.ctx.currency());
   protected readonly date = shortDate;
-  protected readonly signed = signedMoney;
+  protected readonly signed = (n: number, type: TransactionType) =>
+    signedMoney(n, type, this.ctx.currency());
 
   constructor() {
     queueMicrotask(() => {
@@ -279,6 +287,18 @@ export class TabTransactionsComponent {
 
   protected isMockPayer(t: ExpenseListTransaction): boolean {
     return this.ctx.members().find((m) => m.memberId === t.paidByMemberId)?.isMock ?? false;
+  }
+
+  /** Spells out each custom share and the slice of the leftover it absorbed. */
+  protected splitRestTitle(t: ExpenseListTransaction): string {
+    const cur = this.ctx.currency();
+    return t.participants
+      .map((p) => {
+        const custom = p.customShareAmount ?? 0;
+        const extra = p.calculatedShare - custom;
+        return `${p.displayName}: ${money(custom, cur)} + ${money(extra, cur)} = ${money(p.calculatedShare, cur)}`;
+      })
+      .join('\n');
   }
 
   protected myShare(t: ExpenseListTransaction): number | null {

@@ -20,18 +20,28 @@ export interface SplitParticipant {
   customShareAmount: number | null;
 }
 
-export type SplitState = 'ok' | 'over' | 'short';
+/**
+ * ok      — reconciles, submit allowed (green)
+ * partial — every share is custom and they fall short, but the shortfall is being
+ *           divided between them; submit allowed (yellow)
+ * short   — every share is custom and they fall short with no rule for the rest (red)
+ * over    — custom shares exceed the total (red)
+ */
+export type SplitState = 'ok' | 'partial' | 'short' | 'over';
 
 export interface SplitResult {
   state: SplitState;
-  /** memberId → share, only when the split reconciles. */
+  /** memberId → final share, whenever the split is submittable. */
   shares: Record<string, number>;
+  /** memberId → the slice of the shortfall added on top of a custom share. */
+  extras: Record<string, number>;
   customTotal: number;
-  /** Left to divide among the equal-share participants (0 when all are custom). */
+  /** Left to divide (negative when over-allocated). */
   remaining: number;
-  /** How far the custom shares overshoot the total; 0 unless state is 'over'. */
   over: number;
   equalCount: number;
+  /** True when every participant carries a custom amount — the flag only applies then. */
+  allCustom: boolean;
 }
 
 const cents = (n: number): number => Math.round((n || 0) * 100);
@@ -43,7 +53,23 @@ function byMemberId(a: SplitParticipant, b: SplitParticipant): number {
   return x < y ? -1 : x > y ? 1 : 0;
 }
 
-export function calculateSplit(participants: SplitParticipant[], amount: number): SplitResult {
+/** Divide `totalCents` equally, giving the odd cent to the first member. */
+function spread(members: SplitParticipant[], totalCents: number): Record<string, number> {
+  const each = Math.floor(totalCents / members.length);
+  const odd = totalCents - each * members.length;
+
+  const out: Record<string, number> = {};
+  members.forEach((p, i) => {
+    out[p.memberId] = toMoney(i === 0 ? each + odd : each);
+  });
+  return out;
+}
+
+export function calculateSplit(
+  participants: SplitParticipant[],
+  amount: number,
+  splitRemainder = false,
+): SplitResult {
   const total = cents(amount);
   const ordered = [...participants].sort(byMemberId);
   const custom = ordered.filter((p) => p.customShareAmount !== null);
@@ -51,13 +77,16 @@ export function calculateSplit(participants: SplitParticipant[], amount: number)
   const customTotal = custom.reduce((sum, p) => sum + cents(p.customShareAmount!), 0);
 
   const shares: Record<string, number> = {};
+  const extras: Record<string, number> = {};
   const base: SplitResult = {
     state: 'ok',
     shares,
+    extras,
     customTotal: toMoney(customTotal),
     remaining: toMoney(total - customTotal),
     over: 0,
     equalCount: equal.length,
+    allCustom: ordered.length > 0 && equal.length === 0,
   };
 
   if (!ordered.length) {
@@ -65,44 +94,42 @@ export function calculateSplit(participants: SplitParticipant[], amount: number)
     return { ...base, remaining: toMoney(total) };
   }
 
-  // Every participant is custom: they must account for exactly the total.
   if (equal.length === 0) {
-    if (customTotal !== total) {
-      const over = customTotal - total;
-      return {
-        ...base,
-        state: over > 0 ? 'over' : 'short',
-        over: toMoney(Math.max(over, 0)),
-        remaining: toMoney(total - customTotal),
-      };
+    if (customTotal > total) {
+      return { ...base, state: 'over', over: toMoney(customTotal - total) };
     }
+
     for (const p of custom) {
       shares[p.memberId] = p.customShareAmount!;
     }
-    return { ...base, remaining: 0 };
+
+    const shortfall = total - customTotal;
+    if (shortfall === 0) {
+      return base;
+    }
+
+    // Every share is custom and they fall short: only the flag makes that legal.
+    if (!splitRemainder) {
+      return { ...base, state: 'short', shares: {} };
+    }
+
+    const perHead = spread(custom, shortfall);
+    for (const p of custom) {
+      extras[p.memberId] = perHead[p.memberId];
+      shares[p.memberId] = toMoney(cents(p.customShareAmount!) + cents(perHead[p.memberId]));
+    }
+    return { ...base, state: 'partial' };
   }
 
   // Mixed: the customs must leave something over for the equal shares to divide.
   if (custom.length > 0 && customTotal >= total) {
-    return {
-      ...base,
-      state: 'over',
-      over: toMoney(customTotal - total),
-      remaining: toMoney(total - customTotal),
-    };
+    return { ...base, state: 'over', over: toMoney(customTotal - total), shares: {} };
   }
 
   for (const p of custom) {
     shares[p.memberId] = p.customShareAmount!;
   }
+  Object.assign(shares, spread(equal, total - customTotal));
 
-  const remainingCents = total - customTotal;
-  const equalShare = Math.floor(remainingCents / equal.length);
-  const remainder = remainingCents - equalShare * equal.length;
-
-  equal.forEach((p, i) => {
-    shares[p.memberId] = toMoney(i === 0 ? equalShare + remainder : equalShare);
-  });
-
-  return { ...base, remaining: toMoney(remainingCents) };
+  return base;
 }
