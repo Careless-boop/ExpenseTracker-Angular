@@ -1427,12 +1427,152 @@ textarea.input {
   font-size: 28px;
 }
 
+/* ===========================================================================
+   Responsive / mobile
+   The desktop layout is dense and chrome-heavy; on small screens the shared
+   primitives (rows, filters, tabs, dialogs, panels) relax so nothing overflows
+   the viewport. Components lean on these classes, so most pages adapt here.
+   ========================================================================== */
 @media (max-width: 720px) {
   .page {
-    padding: 20px 14px 48px;
+    padding: 18px 14px 56px;
+    gap: 16px;
   }
 
+  .page-title {
+    font-size: 20px;
+  }
+
+  /* a page head with a title + action: let the action drop below full-width */
+  .page-head .btn {
+    flex: 1 1 auto;
+  }
+
+  .grid-tiles {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .stat__value {
+    font-size: 22px;
+  }
+
+  /* Folder tabs scroll sideways rather than wrapping into broken rows. */
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 4px;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 9px 16px;
+
+    &.is-active {
+      padding: 10px 16px;
+    }
+  }
+
+  /* Filters stack into a single column of full-width controls. */
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .filters .field {
+    width: 100%;
+  }
+
+  .filters .input,
+  .filters .input--auto,
+  .filters .select {
+    width: 100%;
+  }
+
+  .filters .segmented {
+    width: 100%;
+
+    button {
+      flex: 1;
+    }
+  }
+
+  /* Data rows: title takes the top line, amount + actions sit beneath it. */
+  .list-row {
+    padding: 12px 14px;
+    gap: 10px;
+    row-gap: 8px;
+  }
+
+  .list-row__main {
+    min-width: 140px;
+  }
+
+  /* when the amount wraps to its own line, keep it (and the actions after it) right-aligned */
   .list-row__amount {
-    min-width: 70px;
+    min-width: 0;
+    margin-left: auto;
+  }
+
+  .pager {
+    padding: 12px 14px;
+    justify-content: center;
+  }
+
+  .pager__info {
+    flex-basis: 100%;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .panel__body {
+    padding: 16px;
+  }
+
+  .grid-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .grid-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  /* Dialogs go full-screen so tall forms (the split editor) get room and scroll. */
+  .scrim {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .dialog,
+  .dialog--sm,
+  .dialog--lg {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    animation: none;
+  }
+
+  .dialog__body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dialog__foot .btn {
+    flex: 1;
   }
 }

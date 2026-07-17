@@ -346,6 +346,39 @@ function presetPeriod(key: PresetKey): Period {
       font-weight: bold;
       color: var(--label);
     }
+
+    @media (max-width: 720px) {
+      /* The period control fills the width, its buttons sharing it evenly. */
+      .page-head .segmented {
+        width: 100%;
+
+        button {
+          flex: 1;
+          padding: 8px 6px;
+        }
+      }
+    }
+
+    @media (max-width: 560px) {
+      .breakdown {
+        padding: 16px;
+        gap: 18px;
+      }
+
+      .legend {
+        min-width: 0;
+        width: 100%;
+      }
+
+      /* drop the per-row transaction count so name + total + % fit a phone row */
+      .legend__count {
+        display: none;
+      }
+
+      .legend__total {
+        width: auto;
+      }
+    }
   `,
 })
 export class DashboardPageComponent {

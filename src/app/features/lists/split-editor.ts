@@ -327,6 +327,24 @@ interface Row {
       color: var(--muted);
       white-space: nowrap;
     }
+
+    @media (max-width: 560px) {
+      .split__row {
+        padding: 11px 12px;
+        gap: 8px 10px;
+      }
+
+      /* checkbox + avatar + name hold the top line; the mode/amount/share cluster
+         wraps beneath and stays right-aligned. */
+      .split__name {
+        min-width: 60px;
+      }
+
+      .split__share {
+        width: auto;
+        margin-left: auto;
+      }
+    }
   `,
 })
 export class SplitEditorComponent {

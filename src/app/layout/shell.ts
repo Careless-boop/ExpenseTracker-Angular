@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../core/auth.service';
@@ -10,19 +10,11 @@ import { AvatarComponent } from '../shared/ui';
   selector: 'app-shell',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, AvatarComponent],
   template: `
-    <header class="chrome">
-      <a class="brand" routerLink="/dashboard">
+    <header class="chrome" [class.is-open]="menuOpen()">
+      <a class="brand" routerLink="/dashboard" (click)="menuOpen.set(false)">
         <span class="brand__coin">$</span>
         <span class="brand__name">ExpenseTracker</span>
       </a>
-
-      <nav class="nav">
-        <a routerLink="/dashboard" routerLinkActive="is-active">Dashboard</a>
-        <a routerLink="/transactions" routerLinkActive="is-active">Transactions</a>
-        <a routerLink="/categories" routerLinkActive="is-active">Categories</a>
-        <a routerLink="/lists" routerLinkActive="is-active">Expense Lists</a>
-        <a routerLink="/settings" routerLinkActive="is-active">Settings</a>
-      </nav>
 
       <div class="spacer"></div>
 
@@ -34,6 +26,25 @@ import { AvatarComponent } from '../shared/ui';
       >
         {{ theme.theme() === 'dark' ? '☀' : '◐' }}
       </button>
+
+      <!-- collapses the nav + account into a dropdown on narrow screens -->
+      <button
+        class="hamburger"
+        type="button"
+        aria-label="Menu"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="menuOpen.set(!menuOpen())"
+      >
+        {{ menuOpen() ? '✕' : '☰' }}
+      </button>
+
+      <nav class="nav" (click)="menuOpen.set(false)">
+        <a routerLink="/dashboard" routerLinkActive="is-active">Dashboard</a>
+        <a routerLink="/transactions" routerLinkActive="is-active">Transactions</a>
+        <a routerLink="/categories" routerLinkActive="is-active">Categories</a>
+        <a routerLink="/lists" routerLinkActive="is-active">Expense Lists</a>
+        <a routerLink="/settings" routerLinkActive="is-active">Settings</a>
+      </nav>
 
       @if (auth.user(); as user) {
         <div class="account">
@@ -58,11 +69,43 @@ import { AvatarComponent } from '../shared/ui';
       flex-wrap: wrap;
     }
 
+    /* Desktop order: brand · nav · spacer · theme · account (hamburger hidden). */
     .brand {
+      order: 1;
       display: flex;
       align-items: center;
       gap: 10px;
       text-decoration: none;
+    }
+
+    .nav {
+      order: 2;
+    }
+
+    .spacer {
+      order: 3;
+    }
+
+    .theme-toggle {
+      order: 4;
+    }
+
+    .account {
+      order: 6;
+    }
+
+    /* the hamburger only appears once the nav collapses (see media query) */
+    .hamburger {
+      order: 5;
+      display: none;
+      width: 38px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
     }
 
     .brand__coin {
@@ -148,10 +191,63 @@ import { AvatarComponent } from '../shared/ui';
       font-weight: bold;
       text-shadow: 0 1px 1px rgba(10, 30, 80, 0.5);
     }
+
+    /* ---- Mobile: collapse nav + account into a dropdown under the header ---- */
+    @media (max-width: 860px) {
+      .chrome {
+        padding: 10px 16px;
+        gap: 12px;
+      }
+
+      .hamburger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* nav and account drop to their own full-width rows, shown only when open */
+      .nav,
+      .account {
+        order: 7;
+        flex-basis: 100%;
+        display: none;
+      }
+
+      .chrome.is-open .nav {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        padding-top: 6px;
+      }
+
+      .chrome.is-open .nav a {
+        padding: 11px 14px;
+      }
+
+      .chrome.is-open .account {
+        display: flex;
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
+        padding-top: 12px;
+        margin-top: 4px;
+      }
+
+      .account__name {
+        flex: 1;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .brand__name {
+        display: none;
+      }
+    }
   `,
 })
 export class ShellComponent {
   protected readonly auth = inject(AuthService);
   protected readonly theme = inject(ThemeService);
   protected readonly initials = initials;
+
+  protected readonly menuOpen = signal(false);
 }
