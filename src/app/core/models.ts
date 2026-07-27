@@ -172,7 +172,7 @@ export interface ExpenseListTransaction {
   createdAt: string;
   participants: ExpenseListParticipant[];
   calculatedShares: Record<string, number>;
-  /** Every participant is custom and the shortfall was divided equally between them. */
+  /** Custom shares are contributions; the leftover was divided equally among everyone. */
   splitRemainder: boolean;
 }
 

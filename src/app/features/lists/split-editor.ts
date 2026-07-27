@@ -222,10 +222,11 @@ interface Row {
         }
 
         <!--
-          Offered only when every participant is custom — with an equal-share participant
-          present the rest already goes to them, and the API rejects the flag.
+          Offered whenever at least one participant has a custom share. Checked, the leftover is
+          split equally among everyone — the equal participants act as a custom share of 0 — and
+          each custom participant pays that slice on top. The API rejects it on an all-equal split.
         -->
-        @if (split().allCustom && total() > 0) {
+        @if (split().hasCustom && total() > 0) {
           <label class="split-rest">
             <input
               class="checkbox"
@@ -233,8 +234,8 @@ interface Row {
               [checked]="splitRemainder()"
               (change)="toggleSplitRemainder()"
             />
-            Split the rest between them
-            <span>— divide whatever the custom shares don't cover</span>
+            Split the rest between everyone
+            <span>— divide whatever the custom shares don't cover, equally among all</span>
           </label>
         }
 
@@ -434,6 +435,11 @@ export class SplitEditorComponent {
     if (s.equalCount === 0) {
       return 'Reconciled — custom shares account for the whole amount.';
     }
+    if (this.splitRemainder()) {
+      return `Reconciled — the remaining ${this.fmt(s.remaining)} splits equally between all ${people(
+        included.length,
+      )}, on top of each custom share.`;
+    }
     return `Reconciled — custom shares ${this.fmt(s.customTotal)}, remaining ${this.fmt(
       s.remaining,
     )} split equally between ${people(s.equalCount)}.`;
@@ -551,8 +557,8 @@ export class SplitEditorComponent {
       paidByMemberId: this.paidByMemberId(),
       categoryId: this.categoryId(),
       participants,
-      // the API rejects the flag unless every participant carries a custom share
-      splitRemainder: this.splitRemainder() && this.split().allCustom,
+      // the API rejects the flag unless at least one participant carries a custom share
+      splitRemainder: this.splitRemainder() && this.split().hasCustom,
     };
 
     const tx = this.editing();

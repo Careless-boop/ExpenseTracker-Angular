@@ -33,15 +33,17 @@ export interface SplitResult {
   state: SplitState;
   /** memberId → final share, whenever the split is submittable. */
   shares: Record<string, number>;
-  /** memberId → the slice of the shortfall added on top of a custom share. */
+  /** memberId → the equal slice added on top of a custom share when "split the rest" is on. */
   extras: Record<string, number>;
   customTotal: number;
   /** Left to divide (negative when over-allocated). */
   remaining: number;
   over: number;
   equalCount: number;
-  /** True when every participant carries a custom amount — the flag only applies then. */
+  /** True when every participant carries a custom amount. */
   allCustom: boolean;
+  /** True when at least one participant carries a custom amount — the flag only applies then. */
+  hasCustom: boolean;
 }
 
 const cents = (n: number): number => Math.round((n || 0) * 100);
@@ -87,6 +89,7 @@ export function calculateSplit(
     over: 0,
     equalCount: equal.length,
     allCustom: ordered.length > 0 && equal.length === 0,
+    hasCustom: custom.length > 0,
   };
 
   if (!ordered.length) {
@@ -121,15 +124,30 @@ export function calculateSplit(
     return { ...base, state: 'partial' };
   }
 
-  // Mixed: the customs must leave something over for the equal shares to divide.
-  if (custom.length > 0 && customTotal >= total) {
+  // Mixed: at least one custom and at least one equal. The customs must leave something over —
+  // the mixed rule (customTotal < total, strictly) is unchanged by the flag.
+  if (customTotal >= total) {
     return { ...base, state: 'over', over: toMoney(customTotal - total), shares: {} };
   }
 
   for (const p of custom) {
     shares[p.memberId] = p.customShareAmount!;
   }
-  Object.assign(shares, spread(equal, total - customTotal));
+
+  // "Split the rest": the leftover is divided among *everyone*, so a custom participant pays their
+  // contribution plus an equal slice (the equal ones act as a custom share of 0). Unchecked, only
+  // the equal participants divide it and the customs pay exactly their amount.
+  const sharing = splitRemainder ? ordered : equal;
+  const perHead = spread(sharing, total - customTotal);
+
+  for (const p of sharing) {
+    if (p.customShareAmount !== null) {
+      extras[p.memberId] = perHead[p.memberId];
+      shares[p.memberId] = toMoney(cents(p.customShareAmount) + cents(perHead[p.memberId]));
+    } else {
+      shares[p.memberId] = perHead[p.memberId];
+    }
+  }
 
   return base;
 }
