@@ -69,36 +69,24 @@ export function initials(name: string): string {
 }
 
 /** Deterministic avatar colour so a member keeps the same one across screens. */
-const AVATAR_COLORS = [
-  ['#c8f2b8', '#2e9a2e'],
-  ['#b8e3ff', '#2380dd'],
-  ['#c495dd', '#8e44ad'],
-  ['#ffd9a8', '#e67e22'],
-  ['#a8e6da', '#16a085'],
-  ['#ffc9b8', '#d6472b'],
-];
+const AVATAR_COLORS = ['#D96F4E', '#7FA35C', '#5C8FA3', '#9A7FB8', '#E0A33E', '#B85C8A'];
 
 export function avatarGradient(seed: string): string {
   let hash = 0;
   for (let i = 0; i < (seed ?? '').length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
-  const [from, to] = AVATAR_COLORS[hash % AVATAR_COLORS.length];
-  return `linear-gradient(180deg, ${from}, ${to})`;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-/** Categories carry a user-chosen hex colour — use it rather than a palette of our own. */
+/** The strong hex a category shows as (its dot / progress bar). */
+export function categoryColor(color: string | null | undefined): string {
+  return color && /^#[0-9a-f]{6}$/i.test(color) ? color : '#9A8C7A';
+}
+
+/** Soft tint behind a category emoji — the strong colour at ~15% alpha. */
 export function categoryGradient(color: string | null | undefined): string {
-  const base = color && /^#[0-9a-f]{6}$/i.test(color) ? color : '#95a5a6';
-  return `linear-gradient(180deg, ${lighten(base, 0.28)}, ${base})`;
-}
-
-function lighten(hex: string, amount: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const r = Math.min(255, Math.round(((n >> 16) & 255) + 255 * amount));
-  const g = Math.min(255, Math.round(((n >> 8) & 255) + 255 * amount));
-  const b = Math.min(255, Math.round((n & 255) + 255 * amount));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  return categoryColor(color) + '26';
 }
 
 export function roleBadgeClass(role: ExpenseListRole): string {

@@ -141,121 +141,98 @@ interface Row {
         </select>
       </div>
 
-      <div class="split">
-        <div class="panel__head">
-          <div class="panel__title" style="font-size:13px">Split between</div>
-          <div class="spacer"></div>
-          <button class="btn btn--xs" type="button" (click)="everyoneEqually()">
+      <div>
+        <div class="row" style="margin-bottom:8px">
+          <label class="label">Split between</label>
+          <button class="btn btn--xs btn--ghost" type="button" style="margin-left:auto" (click)="everyoneEqually()">
             Everyone, equally
           </button>
         </div>
 
-        @for (row of rows(); track row.memberId) {
-          <div class="split__row" [class.is-out]="!row.included">
-            <input
-              class="checkbox"
-              type="checkbox"
-              [checked]="row.included"
-              (change)="toggle(row.memberId)"
-            />
-            <app-avatar [name]="row.displayName" [isMock]="row.isMock" size="sm" />
-            <div class="split__name">
-              {{ row.displayName }}
-              @if (isMe(row.memberId)) {
-                <span style="font-weight:normal;color:var(--muted-2)">(you)</span>
-              }
-              @if (row.isMock) {
-                <span class="badge badge--placeholder">placeholder</span>
-              }
-            </div>
-
-            @if (row.included) {
-              <div class="segmented segmented--sm">
-                <button
-                  type="button"
-                  [class.is-active]="row.mode === 'equal'"
-                  (click)="setMode(row.memberId, 'equal')"
-                >
-                  Equal
-                </button>
-                <button
-                  type="button"
-                  [class.is-active]="row.mode === 'custom'"
-                  (click)="setMode(row.memberId, 'custom')"
-                >
-                  Custom
-                </button>
+        <div class="split-box">
+          @for (row of rows(); track row.memberId) {
+            <div class="split-row" [class.is-out]="!row.included">
+              <button
+                class="checkbtn"
+                type="button"
+                [class.is-on]="row.included"
+                (click)="toggle(row.memberId)"
+              >
+                {{ row.included ? '✓' : '' }}
+              </button>
+              <app-avatar [name]="row.displayName" [isMock]="row.isMock" size="sm" />
+              <div class="split-name">
+                {{ row.displayName }}
+                @if (isMe(row.memberId)) {
+                  <span style="font-weight:600;color:var(--muted)">(you)</span>
+                }
+                @if (row.isMock) {
+                  <span class="badge badge--muted">no account</span>
+                }
               </div>
 
-              @if (row.mode === 'custom') {
-                <div class="money-input money-input--sm">
-                  <div class="money-input__addon">{{ symbol() }}</div>
+              @if (row.included) {
+                <div class="split-share">
+                  @if (submittable()) {
+                    <div>{{ type() === 'Income' ? 'gets' : 'owes' }} {{ fmt(shareOf(row.memberId)) }}</div>
+                    @if (extraOf(row.memberId); as extra) {
+                      <div class="split-break">{{ fmt(+row.amount) }} + {{ fmt(extra) }}</div>
+                    }
+                  }
+                </div>
+                <div class="mini-money" [class.is-active]="row.mode === 'custom'">
+                  <span>{{ symbol() }}</span>
                   <input
                     type="text"
                     inputmode="decimal"
-                    [ngModel]="row.amount"
-                    (ngModelChange)="setAmount(row.memberId, $event)"
+                    placeholder="equal"
+                    [ngModel]="row.mode === 'custom' ? row.amount : ''"
+                    (ngModelChange)="onCustomInput(row.memberId, $event)"
                   />
                 </div>
+              } @else {
+                <div class="split-share" style="color:var(--faint)">not in</div>
               }
-
-              <!-- the real per-person number, never a rounded average -->
-              <div class="split__share">
-                @if (submittable()) {
-                  <div>
-                    {{ type() === 'Income' ? 'gets' : 'owes' }} {{ fmt(shareOf(row.memberId)) }}
-                  </div>
-                  <!-- keep the custom amount visible next to the rest it absorbed -->
-                  @if (extraOf(row.memberId); as extra) {
-                    <div class="split__breakdown">
-                      {{ fmt(+row.amount) }} + {{ fmt(extra) }}
-                    </div>
-                  }
-                } @else {
-                  —
-                }
-              </div>
-            } @else {
-              <div class="split__share" style="color:var(--muted-2)">not included</div>
-            }
-          </div>
-        }
-
-        <!--
-          Offered whenever at least one participant has a custom share. Checked, the leftover is
-          split equally among everyone — the equal participants act as a custom share of 0 — and
-          each custom participant pays that slice on top. The API rejects it on an all-equal split.
-        -->
-        @if (split().hasCustom && total() > 0) {
-          <label class="split-rest">
-            <input
-              class="checkbox"
-              type="checkbox"
-              [checked]="splitRemainder()"
-              (change)="toggleSplitRemainder()"
-            />
-            Split the rest between everyone
-            <span>— divide whatever the custom shares don't cover, equally among all</span>
-          </label>
-        }
-
-        <!-- running reconciliation; submit stays disabled until it balances -->
-        @if (split(); as s) {
-          <div
-            class="reconcile"
-            [class.reconcile--ok]="s.state === 'ok'"
-            [class.reconcile--warn]="s.state === 'partial'"
-            [class.reconcile--bad]="s.state === 'short' || s.state === 'over'"
-          >
-            <div class="reconcile__dot">
-              {{ s.state === 'ok' ? '✓' : s.state === 'partial' ? '≈' : '!' }}
             </div>
-            <div class="reconcile__text">{{ reconcileText() }}</div>
-            <div class="reconcile__sum">
-              {{ fmt(submittable() ? total() : s.customTotal) }} / {{ fmt(total()) }}
+          }
+        </div>
+
+        <div class="row" style="margin-top:12px;gap:10px">
+          <!--
+            Offered whenever at least one participant has a custom share. Checked, the leftover is
+            split equally among everyone; the API rejects it on an all-equal split.
+          -->
+          @if (split().hasCustom && total() > 0) {
+            <label class="split-rest">
+              <button
+                class="checkbtn"
+                type="button"
+                style="width:20px;height:20px"
+                [class.is-on]="splitRemainder()"
+                (click)="toggleSplitRemainder()"
+              >
+                {{ splitRemainder() ? '✓' : '' }}
+              </button>
+              Split the rest equally on top
+              <span
+                class="split-help"
+                title="Custom amounts become contributions off the top; what's left splits equally among everyone."
+              >?</span>
+            </label>
+          }
+
+          @if (split(); as s) {
+            <div
+              class="reconcile"
+              style="margin-left:auto"
+              [class.reconcile--ok]="s.state === 'ok'"
+              [class.reconcile--warn]="s.state === 'partial'"
+              [class.reconcile--bad]="s.state === 'short' || s.state === 'over'"
+            >
+              {{ reconcileText() }}
             </div>
-          </div>
-        }
+          }
+        </div>
       </div>
 
       @if (fieldError('participants'); as msg) {
@@ -263,86 +240,104 @@ interface Row {
       }
 
       <div class="dialog__foot">
-        <button class="btn" type="button" (click)="cancelled.emit()">Cancel</button>
+        <button class="btn btn--ghost" type="button" (click)="cancelled.emit()">Cancel</button>
         <button
           class="btn btn--primary btn--wide"
           type="button"
           [disabled]="!canSave()"
           (click)="save()"
         >
-          Save transaction
+          Save expense
         </button>
       </div>
     </app-dialog>
   `,
   styles: `
-    .split {
-      border: 1px solid var(--panel-head-border);
-      border-radius: var(--radius);
+    .split-box {
+      border: 1px solid var(--border);
+      border-radius: 14px;
       overflow: hidden;
     }
 
-    .split__row {
+    .split-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 11px 16px;
-      border-bottom: 1px solid var(--row-border);
+      gap: 11px;
+      padding: 9px 14px;
+      border-top: 1px solid var(--line);
       flex-wrap: wrap;
 
-      &:nth-child(even) {
-        background: var(--row-zebra);
+      &:first-child {
+        border-top: none;
       }
-
       &.is-out {
         opacity: 0.55;
       }
     }
 
-    .split__name {
+    .split-name {
       flex: 1;
-      min-width: 90px;
+      min-width: 0;
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 13px;
-      font-weight: bold;
-      color: var(--text);
+      font-weight: 700;
+      font-size: 13.5px;
       overflow: hidden;
+      white-space: nowrap;
       text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
-    .split__share {
-      width: 86px;
+    .split-share {
+      flex-shrink: 0;
       text-align: right;
-      font-size: 12px;
-      font-weight: bold;
-      color: var(--accent);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--accent-3);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
-    .split__breakdown {
-      margin-top: 2px;
-      font-size: 10px;
-      font-weight: normal;
+    .mini-money {
+      flex-shrink: 0;
+    }
+
+    .split-break {
+      font-size: 10.5px;
+      font-weight: 500;
       color: var(--muted);
-      white-space: nowrap;
+    }
+
+    .split-rest {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-2);
+      cursor: pointer;
+
+      span:not(.split-help) {
+        color: var(--muted);
+        font-weight: 500;
+      }
+    }
+
+    .split-help {
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--pill);
+      color: var(--label);
+      display: inline-grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: help;
     }
 
     @media (max-width: 560px) {
-      .split__row {
-        padding: 11px 12px;
-        gap: 8px 10px;
-      }
-
-      /* checkbox + avatar + name hold the top line; the mode/amount/share cluster
-         wraps beneath and stays right-aligned. */
-      .split__name {
-        min-width: 60px;
-      }
-
-      .split__share {
-        width: auto;
+      .split-share {
         margin-left: auto;
       }
     }
@@ -518,6 +513,14 @@ export class SplitEditorComponent {
   protected setAmount(memberId: string, amount: string): void {
     this.rows.update((rows) =>
       rows.map((r) => (r.memberId === memberId ? { ...r, amount } : r)),
+    );
+  }
+
+  /** Typing a value switches the row to a custom share; clearing it goes back to equal. */
+  protected onCustomInput(memberId: string, value: string): void {
+    const mode = value.trim() ? 'custom' : 'equal';
+    this.rows.update((rows) =>
+      rows.map((r) => (r.memberId === memberId ? { ...r, mode, amount: value } : r)),
     );
   }
 

@@ -2,7 +2,6 @@ import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 import { AuthService } from './core/auth.service';
-import { ThemeService } from './core/theme.service';
 import { UserPrefsService } from './core/user-prefs.service';
 import { ToastHostComponent } from './shared/ui';
 
@@ -15,9 +14,6 @@ import { ToastHostComponent } from './shared/ui';
   `,
 })
 export class App {
-  // Instantiated for their side effects: the theme attribute on <html>, and
-  // re-reading the user behind a session that survived a reload.
-  private readonly theme = inject(ThemeService);
   private readonly auth = inject(AuthService);
   private readonly prefs = inject(UserPrefsService);
 

@@ -58,88 +58,65 @@ function emptyDraft(): Draft {
   template: `
     <div class="page">
       <div class="page-head">
-        <h1 class="page-title">Transactions</h1>
-        <div class="spacer"></div>
-        <button class="btn btn--primary" type="button" (click)="openCreate()">
-          ＋ Add transaction
+        <div>
+          <h1 class="page-title">Transactions</h1>
+          @if (page(); as p) {
+            <div class="page-sub">{{ p.totalCount }} transactions · newest first</div>
+          }
+        </div>
+        <button class="btn btn--primary" type="button" style="margin-left:auto" (click)="openCreate()">
+          + Add transaction
         </button>
       </div>
 
+      <div class="filters">
+        <button class="chip" [class.is-active]="!filters().type" (click)="setFilter('type', null)">All</button>
+        <button class="chip" [class.is-active]="filters().type === 'Expense'" (click)="setFilter('type', 'Expense')">Expenses</button>
+        <button class="chip" [class.is-active]="filters().type === 'Income'" (click)="setFilter('type', 'Income')">Income</button>
+        <div class="filters__divider"></div>
+        <select
+          class="select input--auto"
+          style="height:36px"
+          [ngModel]="filters().categoryId"
+          (ngModelChange)="setFilter('categoryId', $event)"
+        >
+          <option [ngValue]="null">All categories</option>
+          @for (c of categories(); track c.id) {
+            <option [ngValue]="c.id">{{ c.icon }} {{ c.name }}</option>
+          }
+        </select>
+        <input
+          class="input input--auto"
+          style="height:36px"
+          type="date"
+          title="From"
+          [ngModel]="filters().fromDate"
+          (ngModelChange)="setFilter('fromDate', $event)"
+        />
+        <input
+          class="input input--auto"
+          style="height:36px"
+          type="date"
+          title="To"
+          [ngModel]="filters().toDate"
+          (ngModelChange)="setFilter('toDate', $event)"
+        />
+        @if (filters().type || filters().categoryId || filters().fromDate || filters().toDate) {
+          <button class="btn btn--sm btn--ghost" type="button" (click)="clearFilters()">Clear</button>
+        }
+      </div>
+
       <div class="panel">
-        <div class="filters">
-          <div class="field">
-            <label class="field__label field__label--caps">Category</label>
-            <select
-              class="select select--sm"
-              style="min-width:160px"
-              [ngModel]="filters().categoryId"
-              (ngModelChange)="setFilter('categoryId', $event)"
-            >
-              <option [ngValue]="null">All categories</option>
-              @for (c of categories(); track c.id) {
-                <option [ngValue]="c.id">{{ c.icon }} {{ c.name }}</option>
-              }
-            </select>
-          </div>
-
-          <div class="field">
-            <label class="field__label field__label--caps">Type</label>
-            <div class="segmented">
-              <button type="button" [class.is-active]="!filters().type" (click)="setFilter('type', null)">
-                All
-              </button>
-              <button
-                type="button"
-                class="is-expense"
-                [class.is-active]="filters().type === 'Expense'"
-                (click)="setFilter('type', 'Expense')"
-              >
-                Expenses
-              </button>
-              <button
-                type="button"
-                class="is-income"
-                [class.is-active]="filters().type === 'Income'"
-                (click)="setFilter('type', 'Income')"
-              >
-                Income
-              </button>
-            </div>
-          </div>
-
-          <div class="field">
-            <label class="field__label field__label--caps">From</label>
-            <input
-              class="input input--sm input--auto"
-              type="date"
-              [ngModel]="filters().fromDate"
-              (ngModelChange)="setFilter('fromDate', $event)"
-            />
-          </div>
-
-          <div class="field">
-            <label class="field__label field__label--caps">To</label>
-            <input
-              class="input input--sm input--auto"
-              type="date"
-              [ngModel]="filters().toDate"
-              (ngModelChange)="setFilter('toDate', $event)"
-            />
-          </div>
-
-          <button class="btn btn--sm" type="button" (click)="clearFilters()">Clear</button>
-        </div>
-
         @if (loading()) {
           <app-skeleton-rows />
         } @else if (page(); as p) {
           @if (!p.items.length) {
             <app-empty-state
-              title="No transactions yet"
-              text="Record what you spend and earn — the dashboard builds itself from these."
+              title="Nothing here yet"
+              text="Add your first transaction and it'll show up here, newest first."
             >
               <button class="btn btn--primary" type="button" (click)="openCreate()">
-                ＋ Add a transaction
+                + Add transaction
               </button>
             </app-empty-state>
           } @else {
@@ -256,14 +233,14 @@ function emptyDraft(): Draft {
         </div>
 
         <div class="dialog__foot">
-          <button class="btn" type="button" (click)="draft.set(null)">Cancel</button>
+          <button class="btn btn--ghost" type="button" (click)="draft.set(null)">Cancel</button>
           <button
             class="btn btn--primary btn--wide"
             type="button"
             [disabled]="busy() || !validAmount(d.amount)"
             (click)="save(d)"
           >
-            {{ d.id ? 'Save changes' : 'Add transaction' }}
+            {{ d.id ? 'Save changes' : 'Save' }}
           </button>
         </div>
       </app-dialog>

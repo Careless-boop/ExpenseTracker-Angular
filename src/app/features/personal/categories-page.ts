@@ -17,22 +17,22 @@ import {
   template: `
     <div class="page">
       <div class="page-head">
-        <h1 class="page-title">Categories</h1>
-        <div class="spacer"></div>
-        <button class="btn btn--green" type="button" (click)="manager()?.openCreate()">
-          ＋ New category
+        <div>
+          <h1 class="page-title">Categories</h1>
+          <div class="page-sub">Your personal categories — each with its own emoji and colour.</div>
+        </div>
+        <button class="btn btn--primary" type="button" style="margin-left:auto" (click)="manager()?.openCreate()">
+          + New category
         </button>
       </div>
 
-      <div class="panel">
-        <app-category-manager
-          [categories]="categories()"
-          [busy]="busy()"
-          [error]="error()"
-          (save)="save($event)"
-          (remove)="remove($event)"
-        />
-      </div>
+      <app-category-manager
+        [categories]="categories()"
+        [busy]="busy()"
+        [error]="error()"
+        (save)="save($event)"
+        (remove)="remove($event)"
+      />
     </div>
   `,
 })

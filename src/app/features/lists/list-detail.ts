@@ -29,112 +29,49 @@ import { ListContext } from './list-context';
   template: `
     <div class="page">
       @if (ctx.notFound()) {
-        <div class="panel" style="max-width:520px;margin:40px auto">
-          <div class="empty">
-            <div class="not-found">404</div>
-            <div class="empty__title">This list can't be found</div>
-            <div class="empty__text">
-              It may have been deleted, or the link is wrong.
-            </div>
-            <a class="btn btn--primary btn--sm" routerLink="/lists">Back to my lists</a>
+        <div class="empty" style="max-width:460px;margin:64px auto">
+          <div style="font-size:44px;font-weight:800;color:var(--faint)">404</div>
+          <div class="empty__title">This list can't be found</div>
+          <div class="empty__text">It may have been deleted, or the link is wrong.</div>
+          <div class="empty__actions">
+            <a class="btn btn--primary" routerLink="/lists">Back to my lists</a>
           </div>
         </div>
       } @else if (ctx.detail(); as list) {
-        <div class="crumbs"><a routerLink="/lists">Expense Lists</a> › {{ list.name }}</div>
-
-        <div class="panel" style="padding:20px 24px;display:flex;gap:24px;align-items:center;flex-wrap:wrap">
-          <div style="flex:1;min-width:240px">
-            <div class="row" style="gap:12px">
-              <h1 style="font-size:24px">{{ list.name }}</h1>
-              <span [class]="'badge badge--' + list.currentUserRole.toLowerCase()">
-                {{ list.currentUserRole }}
-              </span>
-              @if (ctx.isClosed()) {
-                <span class="badge badge--closed">Closed</span>
-              }
-              <span class="badge badge--soft" title="This list's currency">{{ list.currency }}</span>
-            </div>
-            @if (list.description) {
-              <div class="hint" style="margin-top:4px">{{ list.description }}</div>
-            }
-          </div>
-
-          <div class="row" style="gap:24px">
-            <div>
-              <div class="stat__label">Expenses</div>
-              <div class="total money--expense">{{ fmt(list.totalExpenses) }}</div>
-            </div>
-            <div>
-              <div class="stat__label">Income</div>
-              <div class="total money--income">{{ fmt(list.totalIncome) }}</div>
-            </div>
-            <div>
-              <div class="stat__label">Members</div>
-              <div class="avatar-stack" style="margin-top:4px">
-                @for (m of list.members.slice(0, 5); track m.memberId) {
-                  <app-avatar [name]="m.displayName" [isMock]="m.isMock" />
-                }
-              </div>
-            </div>
-          </div>
-
-          @if (ctx.canManage()) {
-            <div class="row">
-              <button class="btn btn--sm" type="button" (click)="openEdit(list)">Edit…</button>
-              <button class="btn btn--gold btn--sm" type="button" (click)="closing.set(true)">
-                Close list…
-              </button>
-              <button class="btn btn--red btn--sm" type="button" (click)="deleting.set(true)">
-                Delete
-              </button>
-            </div>
-          } @else if (ctx.isClosed() && ctx.isOwner()) {
-            <button class="btn btn--gold btn--sm" type="button" (click)="reopening.set(true)">
-              Reopen list…
-            </button>
-          }
-        </div>
+        <a class="back" routerLink="/lists" data-hide-mobile>← All lists</a>
 
         <!-- a closed list is frozen: every write endpoint returns 400 -->
         @if (ctx.isClosed()) {
-          <div class="banner banner--gold">
+          <div class="banner banner--muted">
             <div class="banner__icon">🔒</div>
             <div class="banner__body">
-              <div class="banner__title">
-                Closed on {{ date(list.closedAt!) }} — this list is read-only
-              </div>
+              <div class="banner__title">Closed on {{ date(list.closedAt!) }} — this list is read-only</div>
               <div class="banner__text">
-                Each member's share of the expenses was added to their personal transactions, under
-                a category named after this list.
+                Everyone's share has been added to their personal transactions under a
+                “{{ list.name }}” category.
               </div>
             </div>
             @if (ctx.isOwner()) {
-              <button class="btn btn--sm btn--banner" type="button" (click)="reopening.set(true)">
-                Reopen list…
-              </button>
+              <button class="btn btn--sm btn--ghost" type="button" (click)="reopening.set(true)">Reopen list</button>
             }
           </div>
         }
 
         <!-- claim: you're a member, but placeholders exist that might be you -->
         @if (!ctx.isClosed() && ctx.claimable().length) {
-          <div class="banner banner--gold">
+          <div class="banner banner--warn">
             <div class="banner__icon">👋</div>
             <div class="banner__body">
               <div class="banner__title">Are you one of these people?</div>
               <div class="banner__text">
                 {{ ctx.claimable().length }}
                 {{ ctx.claimable().length === 1 ? 'placeholder is' : 'placeholders are' }} not linked
-                to an account. Claim yours to inherit its expense history.
+                to an account. Claim yours to inherit its expenses and settlements.
               </div>
             </div>
             <div class="row">
               @for (m of ctx.claimable(); track m.memberId) {
-                <button
-                  class="btn btn--sm btn--banner"
-                  type="button"
-                  (click)="claim(m.memberId, m.displayName)"
-                >
+                <button class="btn btn--sm btn--ghost" type="button" (click)="claim(m.memberId, m.displayName)">
                   I'm {{ m.displayName }}
                 </button>
               }
@@ -142,20 +79,57 @@ import { ListContext } from './list-context';
           </div>
         }
 
-        <div>
-          <div class="tabs">
-            <a class="tab" routerLink="transactions" routerLinkActive="is-active">Transactions</a>
-            <a class="tab" routerLink="balances" routerLinkActive="is-active">Balances</a>
-            <a class="tab" routerLink="categories" routerLinkActive="is-active">Categories</a>
-            <a class="tab" routerLink="members" routerLinkActive="is-active">Members</a>
-            <a class="tab" routerLink="settlements" routerLinkActive="is-active">Settlements</a>
+        <header class="lhead">
+          <div class="lhead__emoji">{{ emoji(list.id) }}</div>
+          <div style="min-width:0">
+            <div class="row" style="gap:10px">
+              <h1 style="font-size:24px">{{ list.name }}</h1>
+              <span [class]="'badge badge--' + list.currentUserRole.toLowerCase()">{{ list.currentUserRole }}</span>
+              @if (ctx.isClosed()) {
+                <span class="badge badge--closed">Closed</span>
+              }
+            </div>
+            <div class="page-sub" style="margin-top:3px">
+              {{ list.description || (list.members.length + ' members') }} · {{ list.currency }}
+            </div>
           </div>
-          <div class="tab-panel">
-            <router-outlet />
+
+          <div class="lhead__right">
+            <div>
+              <div class="section-label">SPENT</div>
+              <div class="money" style="font-size:19px">{{ fmt(list.totalExpenses) }}</div>
+            </div>
+            <div>
+              <div class="section-label">RECEIVED</div>
+              <div class="money money--income" style="font-size:19px">{{ fmt(list.totalIncome) }}</div>
+            </div>
+            <div class="avatar-stack">
+              @for (m of list.members.slice(0, 5); track m.memberId) {
+                <app-avatar [name]="m.displayName" [isMock]="m.isMock" size="sm" />
+              }
+            </div>
+            @if (ctx.canManage()) {
+              <div class="row" style="gap:8px">
+                <button class="btn btn--sm btn--ghost" type="button" (click)="openEdit(list)">Edit</button>
+                <button class="btn btn--sm btn--ghost" type="button" (click)="closing.set(true)">Close list</button>
+                <button class="icon-btn icon-btn--danger" type="button" title="Delete list" (click)="deleting.set(true)">×</button>
+              </div>
+            } @else if (ctx.isClosed() && ctx.isOwner()) {
+              <button class="btn btn--sm btn--ghost" type="button" (click)="reopening.set(true)">Reopen list</button>
+            }
           </div>
+        </header>
+
+        <div class="tabs">
+          <a class="tab" routerLink="transactions" routerLinkActive="is-active">Transactions</a>
+          <a class="tab" routerLink="balances" routerLinkActive="is-active">Balances</a>
+          <a class="tab" routerLink="categories" routerLinkActive="is-active">Categories</a>
+          <a class="tab" routerLink="members" routerLinkActive="is-active">Members</a>
+          <a class="tab" routerLink="settlements" routerLinkActive="is-active">Settlements</a>
         </div>
+        <router-outlet />
       } @else {
-        <div class="panel" style="padding:24px">
+        <div class="card" style="padding:24px">
           <div class="skeleton" style="width:40%;height:22px"></div>
           <div class="skeleton" style="width:70%;margin-top:14px"></div>
         </div>
@@ -165,7 +139,7 @@ import { ListContext } from './list-context';
     @if (editing()) {
       <app-dialog title="Edit list" size="sm" (closed)="editing.set(false)">
         <div class="field">
-          <label class="field__label">Name <span>(≤ 200)</span></label>
+          <label class="label">Name</label>
           <input
             class="input"
             [class.is-invalid]="editError('name')"
@@ -180,32 +154,28 @@ import { ListContext } from './list-context';
         </div>
 
         <div class="field">
-          <label class="field__label">Description <span>(≤ 1000, optional)</span></label>
-          <textarea
+          <label class="label">Description <span>(optional)</span></label>
+          <input
             class="input"
-            rows="3"
+            type="text"
             maxlength="1000"
             [ngModel]="editDescription()"
             (ngModelChange)="editDescription.set($event)"
-          ></textarea>
+          />
         </div>
 
         <div class="field">
-          <label class="field__label">Currency</label>
-          <select
-            class="select"
-            [ngModel]="editCurrency()"
-            (ngModelChange)="editCurrency.set($event)"
-          >
+          <label class="label">Currency</label>
+          <select class="select" [ngModel]="editCurrency()" (ngModelChange)="editCurrency.set($event)">
             @for (c of currencies; track c.code) {
-              <option [value]="c.code">{{ c.code }} · {{ c.name }} ({{ c.symbol }})</option>
+              <option [value]="c.code">{{ c.code }} ({{ c.symbol }})</option>
             }
           </select>
           <div class="hint">Changes how this list's amounts are shown. Values aren't converted.</div>
         </div>
 
         <div class="dialog__foot">
-          <button class="btn" type="button" (click)="editing.set(false)">Cancel</button>
+          <button class="btn btn--ghost" type="button" (click)="editing.set(false)">Cancel</button>
           <button
             class="btn btn--primary btn--wide"
             type="button"
@@ -251,17 +221,52 @@ import { ListContext } from './list-context';
     }
   `,
   styles: `
-    .total {
-      font-family: var(--font-head);
-      font-weight: bold;
-      font-size: 20px;
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      &:hover {
+        color: var(--accent-3);
+      }
     }
 
-    .not-found {
-      font-family: var(--font-head);
-      font-weight: bold;
-      font-size: 34px;
-      color: var(--muted-2);
+    .lhead {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .lhead__emoji {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      background: linear-gradient(120deg, #f3d9c8, #e9b99c);
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+
+    .lhead__right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 720px) {
+      .lhead {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .lhead__right {
+        margin-left: 0;
+        width: 100%;
+      }
     }
   `,
 })
@@ -287,6 +292,13 @@ export class ListDetailComponent {
 
   protected readonly fmt = (n: number) => money(n, this.ctx.currency());
   protected readonly date = longDate;
+
+  private readonly listEmoji = ['✈️', '🏠', '🎾', '🏔️', '🎂', '🍽️', '🚗', '⛺', '🛒', '🎉'];
+  protected emoji(id: string): string {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return this.listEmoji[h % this.listEmoji.length];
+  }
 
   constructor() {
     // `id` is a routed input; read it once the route is resolved.

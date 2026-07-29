@@ -16,73 +16,57 @@ import { ListContext } from './list-context';
   selector: 'app-tab-members',
   imports: [FormsModule, DialogComponent, ConfirmComponent, AvatarComponent],
   template: `
-    <div class="panel__head">
-      <div class="panel__title">Members</div>
-      <div class="spacer"></div>
-      @if (ctx.canManage()) {
-        <button class="btn btn--sm btn--primary" type="button" (click)="adding.set(true)">
-          ＋ Add member
-        </button>
-      }
+    <div class="row" style="justify-content:flex-end;margin-bottom:12px">
       @if (ctx.canEdit()) {
-        <button class="btn btn--sm" type="button" (click)="openMock(null)">
-          ＋ Add placeholder
-        </button>
+        <button class="btn btn--sm btn--ghost" type="button" (click)="openMock(null)">+ Placeholder person</button>
+      }
+      @if (ctx.canManage()) {
+        <button class="btn btn--sm btn--primary" type="button" (click)="adding.set(true)">+ Add member</button>
       }
     </div>
 
-    @for (m of ctx.members(); track m.memberId) {
-      <div class="list-row">
-        <app-avatar [name]="m.displayName" [isMock]="m.isMock" />
+    <div class="card" style="padding:8px">
+      @for (m of ctx.members(); track m.memberId) {
+        <div class="brow">
+          <app-avatar [name]="m.displayName" [isMock]="m.isMock" />
+          <div style="min-width:0;flex:1">
+            <div class="row" style="gap:8px">
+              <span style="font-weight:700;font-size:14.5px">{{ m.displayName }}</span>
+              <span [class]="'badge badge--' + m.role.toLowerCase()">{{ m.role }}</span>
+              @if (isMe(m)) {
+                <span class="badge badge--muted">You</span>
+              }
+              @if (m.isMock) {
+                <span class="badge badge--warn">NO ACCOUNT YET</span>
+              }
+            </div>
+            <div class="hint" style="color:var(--muted);margin-top:1px">
+              {{ m.email || 'A placeholder — an Editor records expenses on their behalf' }}
+            </div>
+          </div>
 
-        <div class="list-row__main">
           <div class="row" style="gap:6px">
-            <span class="list-row__title">{{ m.displayName }}</span>
-            @if (isMe(m)) {
-              <span class="badge badge--soft">You</span>
+            @if (ctx.canEdit() && m.isMock) {
+              <button class="btn btn--xs btn--ghost" type="button" (click)="openMock(m)">Rename</button>
             }
-            @if (m.isMock) {
-              <span class="badge badge--placeholder">no account yet</span>
+            @if (ctx.canManage() && !isMe(m)) {
+              <button class="btn btn--xs btn--ghost" type="button" (click)="openRole(m)">Change role</button>
+            }
+            @if (canRemove(m)) {
+              <button class="btn btn--xs btn--ghost" type="button" style="color:var(--danger)" (click)="removing.set(m)">
+                {{ isMe(m) ? 'Leave list' : 'Remove' }}
+              </button>
             }
           </div>
-          <div class="list-row__meta">
-            {{ m.email || 'Placeholder — an Editor records expenses on their behalf' }} · joined
-            {{ date(m.joinedAt) }}
-          </div>
         </div>
-
-        <span [class]="'badge badge--' + m.role.toLowerCase()">{{ m.role }}</span>
-
-        <div class="list-row__actions">
-          @if (ctx.canEdit() && m.isMock) {
-            <button class="icon-btn" type="button" title="Rename" (click)="openMock(m)">✎</button>
-          }
-          @if (ctx.canManage() && !isMe(m)) {
-            <button class="icon-btn" type="button" title="Change role" (click)="openRole(m)">
-              ⚙
-            </button>
-          }
-          @if (canRemove(m)) {
-            <button
-              class="icon-btn icon-btn--danger"
-              [title]="isMe(m) ? 'Leave list' : 'Remove'"
-              type="button"
-              (click)="removing.set(m)"
-            >
-              ✕
-            </button>
-          }
-        </div>
-      </div>
-    }
+      }
+    </div>
 
     <!-- an owner cannot leave without transferring ownership first -->
     @if (ctx.isOwner() && !ctx.isClosed()) {
-      <div class="panel__body" style="padding-top:0">
-        <div class="hint">
-          You own this list. To leave it, transfer ownership to another member first — promoting
-          someone to Owner demotes you to Editor.
-        </div>
+      <div class="hint" style="margin-top:12px">
+        Adding a member? They need an ExpenseTracker account already — there's no email invite yet.
+        To leave, transfer ownership to another member first.
       </div>
     }
 

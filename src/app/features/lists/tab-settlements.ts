@@ -6,89 +6,65 @@ import { money, shortDate } from '../../core/format';
 import { Paginated, Settlement } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { ConfirmComponent } from '../../shared/dialog';
-import { AvatarComponent, EmptyStateComponent, PagerComponent } from '../../shared/ui';
+import { EmptyStateComponent, PagerComponent } from '../../shared/ui';
 import { ListContext } from './list-context';
 import { SettlementDialog } from './settlement-dialog';
 
 @Component({
   selector: 'app-tab-settlements',
-  imports: [
-    ConfirmComponent,
-    AvatarComponent,
-    EmptyStateComponent,
-    PagerComponent,
-    SettlementDialog,
-  ],
+  imports: [ConfirmComponent, EmptyStateComponent, PagerComponent, SettlementDialog],
   template: `
-    <div class="panel__head">
-      <div class="panel__title">Settlements</div>
-      <div class="spacer"></div>
+    <div class="row" style="justify-content:flex-end;margin-bottom:12px">
       @if (ctx.canEdit()) {
-        <button class="btn btn--sm btn--green" type="button" (click)="creating.set(true)">
-          ＋ Record a settlement
-        </button>
+        <button class="btn btn--sm btn--primary" type="button" (click)="creating.set(true)">+ Record a settlement</button>
       }
     </div>
 
     @if (loading()) {
-      <div class="panel__body"><div class="skeleton" style="width:100%;height:44px"></div></div>
+      <div class="card" style="padding:16px"><div class="skeleton" style="width:100%;height:44px"></div></div>
     } @else if (page(); as p) {
       @if (!p.items.length) {
-        <app-empty-state
-          title="No settlements yet"
-          text="When someone pays another member back, record it here and the balances update."
-          glyph="↔"
-        >
-          @if (ctx.canEdit()) {
-            <button class="btn btn--green" type="button" (click)="creating.set(true)">
-              ＋ Record a settlement
-            </button>
-          }
-        </app-empty-state>
-      } @else {
-        @for (s of p.items; track s.id) {
-          <div class="list-row">
-            <app-avatar
-              [name]="s.fromDisplayName"
-              [isMock]="isMock(s.fromMemberId)"
-              size="sm"
-            />
-            <div class="list-row__main">
-              <div class="list-row__title">
-                {{ s.fromDisplayName }} → {{ s.toDisplayName }}
-              </div>
-              <div class="list-row__meta">
-                {{ date(s.settledAt) }}
-                @if (s.note) {
-                  <span>· {{ s.note }}</span>
-                }
-              </div>
-            </div>
-            <div class="list-row__amount money--neutral">{{ fmt(s.amount) }}</div>
-
-            <!-- deletable by whoever recorded it, or the owner -->
-            @if (canDelete(s)) {
-              <div class="list-row__actions">
-                <button
-                  class="icon-btn icon-btn--danger"
-                  type="button"
-                  title="Delete"
-                  (click)="deleting.set(s)"
-                >
-                  ✕
-                </button>
-              </div>
+        <div class="card">
+          <app-empty-state
+            title="No settlements yet"
+            text="When someone pays another member back, record it here and the balances update."
+            glyph="🤝"
+          >
+            @if (ctx.canEdit()) {
+              <button class="btn btn--primary" type="button" (click)="creating.set(true)">+ Record a settlement</button>
             }
-          </div>
-        }
+          </app-empty-state>
+        </div>
+      } @else {
+        <div class="card" style="padding:8px">
+          @for (s of p.items; track s.id) {
+            <div class="brow">
+              <div class="cat-icon" style="background:var(--income-soft)">🤝</div>
+              <div style="min-width:0;flex:1">
+                <div style="font-weight:700;font-size:14.5px">
+                  <b>{{ s.fromDisplayName }}</b> <span style="color:var(--muted);font-weight:600">paid</span> <b>{{ s.toDisplayName }}</b>
+                </div>
+                <div class="hint" style="color:var(--muted);margin-top:1px">
+                  {{ date(s.settledAt) }}@if (s.note) {<span> · {{ s.note }}</span>}
+                </div>
+              </div>
+              <div class="money money--income" style="font-size:15px">{{ fmt(s.amount) }}</div>
+              @if (canDelete(s)) {
+                <button class="icon-btn icon-btn--danger" type="button" title="Delete settlement" (click)="deleting.set(s)">×</button>
+              }
+            </div>
+          }
+        </div>
 
-        <app-pager
-          [page]="p.pageNumber"
-          [totalPages]="p.totalPages"
-          [total]="p.totalCount"
-          noun="settlements"
-          (go)="goToPage($event)"
-        />
+        <div style="margin-top:14px">
+          <app-pager
+            [page]="p.pageNumber"
+            [totalPages]="p.totalPages"
+            [total]="p.totalCount"
+            noun="settlements"
+            (go)="goToPage($event)"
+          />
+        </div>
       }
     }
 

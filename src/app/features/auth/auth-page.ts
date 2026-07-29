@@ -4,15 +4,14 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { ApiError, toApiError } from '../../core/api-error';
 import { AuthService } from '../../core/auth.service';
-import { ThemeService } from '../../core/theme.service';
 import { UserPrefsService } from '../../core/user-prefs.service';
 
 const PASSWORD_RULES: { label: string; test: (v: string) => boolean }[] = [
-  { label: 'At least 8 characters', test: (v) => v.length >= 8 },
-  { label: 'An uppercase letter', test: (v) => /[A-Z]/.test(v) },
-  { label: 'A lowercase letter', test: (v) => /[a-z]/.test(v) },
-  { label: 'A digit', test: (v) => /\d/.test(v) },
-  { label: 'A non-alphanumeric character', test: (v) => /[^A-Za-z0-9]/.test(v) },
+  { label: '8+ characters', test: (v) => v.length >= 8 },
+  { label: 'uppercase', test: (v) => /[A-Z]/.test(v) },
+  { label: 'lowercase', test: (v) => /[a-z]/.test(v) },
+  { label: 'a digit', test: (v) => /\d/.test(v) },
+  { label: 'a symbol', test: (v) => /[^A-Za-z0-9]/.test(v) },
 ];
 
 @Component({
@@ -21,159 +20,183 @@ const PASSWORD_RULES: { label: string; test: (v: string) => boolean }[] = [
   template: `
     <div class="auth">
       <div class="auth__brand">
-        <span class="empty__coin" style="width:44px;height:44px;font-size:24px">$</span>
-        <span class="auth__wordmark">ExpenseTracker</span>
+        <span class="brand__mark" style="width:34px;height:34px;box-shadow:inset -8px -8px 0 var(--accent-2)"></span>
+        <span style="font-weight:800;font-size:20px;letter-spacing:-.01em">ExpenseTracker</span>
       </div>
 
-      <div class="panel" style="width:420px;max-width:100%">
-        <div class="panel__head">
-          <div class="panel__title">{{ isRegister() ? 'Create your account' : 'Sign in' }}</div>
-          <div class="spacer"></div>
-          <button class="btn btn--xs" type="button" (click)="theme.toggle()">
-            {{ theme.theme() === 'dark' ? '☀ Light' : '◐ Dark' }}
-          </button>
+      <form class="auth__card" (ngSubmit)="submit()">
+        <div class="auth__seg">
+          <a routerLink="/login" [class.is-active]="!isRegister()">Log in</a>
+          <a routerLink="/register" [class.is-active]="isRegister()">Create account</a>
         </div>
 
-        <form class="panel__body" style="display:flex;flex-direction:column;gap:16px" (ngSubmit)="submit()">
-          <!-- 429 and lockout both arrive as a message, not a field error -->
-          @if (error(); as err) {
-            @if (!err.fieldErrors['_']) {
-              <div class="callout callout--bad">{{ err.message }}</div>
-            }
-          }
-
-          @if (isRegister()) {
-            <div class="field">
-              <label class="field__label">Username</label>
-              <input
-                class="input"
-                [class.is-invalid]="fieldError('userName')"
-                type="text"
-                name="userName"
-                autocomplete="username"
-                [(ngModel)]="userName"
-                required
-              />
-              @if (fieldError('userName'); as msg) {
-                <div class="field__error">{{ msg }}</div>
-              }
+        @if (error(); as err) {
+          @if (!err.fieldErrors['_']) {
+            <div class="callout" [class.callout--bad]="err.status !== 429" [class.callout--warn]="err.status === 429">
+              {{ err.message }}
             </div>
           }
+        }
 
+        @if (isRegister()) {
           <div class="field">
-            <label class="field__label">Email</label>
+            <label class="label">Username</label>
             <input
               class="input"
-              [class.is-invalid]="fieldError('email')"
-              type="email"
-              name="email"
-              autocomplete="email"
-              [(ngModel)]="email"
-              required
+              [class.is-invalid]="fieldError('userName')"
+              type="text"
+              autocomplete="username"
+              placeholder="andriyk"
+              [ngModel]="userName()"
+              (ngModelChange)="userName.set($event)"
+              name="userName"
             />
-            @if (fieldError('email'); as msg) {
+            @if (fieldError('userName'); as msg) {
               <div class="field__error">{{ msg }}</div>
             }
           </div>
+        }
 
-          <div class="field">
-            <label class="field__label">Password</label>
-            <input
-              class="input"
-              [class.is-invalid]="fieldError('password') || ruleViolations().length"
-              type="password"
-              name="password"
-              [autocomplete]="isRegister() ? 'new-password' : 'current-password'"
-              [(ngModel)]="password"
-              required
-            />
-            @if (fieldError('password'); as msg) {
-              <div class="field__error">{{ msg }}</div>
-            }
-          </div>
-
-          <!-- password rules render against the field, live, and again on a 400 -->
-          @if (isRegister()) {
-            <div class="rules">
-              @for (rule of rules; track rule.label) {
-                <div class="rule" [class.is-met]="rule.test(password())">
-                  <span>{{ rule.test(password()) ? '✓' : '·' }}</span>
-                  {{ rule.label }}
-                </div>
-              }
-            </div>
-            @for (msg of ruleViolations(); track msg) {
-              <div class="field__error">{{ msg }}</div>
-            }
+        <div class="field">
+          <label class="label">Email</label>
+          <input
+            class="input"
+            [class.is-invalid]="fieldError('email')"
+            type="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            [ngModel]="email()"
+            (ngModelChange)="email.set($event)"
+            name="email"
+          />
+          @if (fieldError('email'); as msg) {
+            <div class="field__error">{{ msg }}</div>
           }
+        </div>
 
-          <button
-            class="btn btn--primary btn--block"
-            type="submit"
-            [disabled]="busy() || !canSubmit()"
-          >
-            {{ busy() ? 'Please wait…' : isRegister() ? 'Create account' : 'Sign in' }}
-          </button>
+        <div class="field">
+          <label class="label">Password</label>
+          <input
+            class="input"
+            [class.is-invalid]="fieldError('password') || ruleViolations().length"
+            type="password"
+            [autocomplete]="isRegister() ? 'new-password' : 'current-password'"
+            placeholder="••••••••"
+            [ngModel]="password()"
+            (ngModelChange)="password.set($event)"
+            name="password"
+          />
+          @if (fieldError('password'); as msg) {
+            <div class="field__error">{{ msg }}</div>
+          }
+        </div>
 
-          <div class="hint" style="text-align:center">
-            @if (isRegister()) {
-              Already have an account? <a routerLink="/login">Sign in</a>
-            } @else {
-              New here? <a routerLink="/register">Create an account</a>
+        @if (isRegister()) {
+          <div class="auth__rules">
+            @for (rule of rules; track rule.label) {
+              <span class="auth__rule" [class.is-met]="rule.test(password())">
+                {{ rule.test(password()) ? '✓' : '·' }} {{ rule.label }}
+              </span>
             }
           </div>
-        </form>
-      </div>
+          @for (msg of ruleViolations(); track msg) {
+            <div class="field__error">{{ msg }}</div>
+          }
+        }
 
-      <div class="hint" style="max-width:420px;text-align:center">
-        Registration signs you straight in — there is no email confirmation step.
-      </div>
+        <button class="btn btn--primary btn--block" type="submit" [disabled]="busy() || !canSubmit()">
+          {{ busy() ? 'Please wait…' : isRegister() ? 'Create account' : 'Log in' }}
+        </button>
+
+        @if (isRegister()) {
+          <div class="hint" style="text-align:center;margin-top:2px">
+            No email confirmation — you're in straight away.
+          </div>
+        }
+      </form>
+
+      <div class="auth__tag">Track it. Split it. Settle it. Move on.</div>
     </div>
   `,
   styles: `
     .auth {
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 22px;
-      padding: 40px 16px;
+      display: grid;
+      place-items: center;
+      padding: 24px;
     }
 
     .auth__brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: center;
+      gap: 11px;
+      margin-bottom: 26px;
     }
 
-    .auth__wordmark {
-      font-family: var(--font-head);
-      font-weight: bold;
-      font-size: 30px;
-      color: var(--heading);
-      text-shadow: var(--heading-shadow);
-    }
-
-    .rules {
+    .auth__card {
+      width: 100%;
+      max-width: 400px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 14px;
     }
 
-    .rule {
-      font-size: 11px;
-      color: var(--muted);
+    .auth__seg {
+      display: flex;
+      background: var(--pill);
+      border-radius: 12px;
+      padding: 3px;
+      margin-bottom: 8px;
 
-      span {
-        display: inline-block;
-        width: 12px;
-        font-weight: bold;
+      a {
+        flex: 1;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        color: var(--label);
+        font-size: 14px;
+        font-weight: 700;
+
+        &.is-active {
+          background: #fff;
+          color: var(--ink);
+          box-shadow: 0 1px 3px rgba(55, 47, 39, 0.12);
+        }
       }
+    }
+
+    .auth__rules {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .auth__rule {
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: var(--pill);
+      color: #9a8c7a;
+      font-size: 11.5px;
+      font-weight: 700;
 
       &.is-met {
-        color: var(--ok-ink);
+        background: var(--income-soft);
+        color: var(--income);
       }
+    }
+
+    .auth__tag {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--faint);
     }
   `,
 })
@@ -182,7 +205,6 @@ export class AuthPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly prefs = inject(UserPrefsService);
-  protected readonly theme = inject(ThemeService);
 
   protected readonly isRegister = signal(this.route.snapshot.data['mode'] === 'register');
 

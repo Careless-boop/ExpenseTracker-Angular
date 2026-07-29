@@ -34,91 +34,47 @@ import { SplitEditorComponent } from './split-editor';
     SplitEditorComponent,
   ],
   template: `
-    <div class="filters">
-      <div class="field">
-        <label class="field__label field__label--caps">Category</label>
-        <select
-          class="select select--sm"
-          style="min-width:150px"
-          [ngModel]="filters().categoryId"
-          (ngModelChange)="setFilter('categoryId', $event)"
-        >
-          <option [ngValue]="null">All categories</option>
-          @for (c of categories(); track c.id) {
-            <option [ngValue]="c.id">{{ c.icon }} {{ c.name }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="field">
-        <label class="field__label field__label--caps">Type</label>
-        <div class="segmented">
-          <button type="button" [class.is-active]="!filters().type" (click)="setFilter('type', null)">
-            All
-          </button>
-          <button
-            type="button"
-            class="is-expense"
-            [class.is-active]="filters().type === 'Expense'"
-            (click)="setFilter('type', 'Expense')"
-          >
-            Expenses
-          </button>
-          <button
-            type="button"
-            class="is-income"
-            [class.is-active]="filters().type === 'Income'"
-            (click)="setFilter('type', 'Income')"
-          >
-            Income
-          </button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label class="field__label field__label--caps">From</label>
-        <input
-          class="input input--sm input--auto"
-          type="date"
-          [ngModel]="filters().fromDate"
-          (ngModelChange)="setFilter('fromDate', $event)"
-        />
-      </div>
-
-      <div class="field">
-        <label class="field__label field__label--caps">To</label>
-        <input
-          class="input input--sm input--auto"
-          type="date"
-          [ngModel]="filters().toDate"
-          (ngModelChange)="setFilter('toDate', $event)"
-        />
-      </div>
-
+    <div class="filters" style="margin-bottom:16px">
+      <button class="chip" [class.is-active]="!filters().type" (click)="setFilter('type', null)">All</button>
+      <button class="chip" [class.is-active]="filters().type === 'Expense'" (click)="setFilter('type', 'Expense')">Expenses</button>
+      <button class="chip" [class.is-active]="filters().type === 'Income'" (click)="setFilter('type', 'Income')">Income</button>
+      <div class="filters__divider"></div>
+      <select
+        class="select input--auto"
+        style="height:36px"
+        [ngModel]="filters().categoryId"
+        (ngModelChange)="setFilter('categoryId', $event)"
+      >
+        <option [ngValue]="null">All categories</option>
+        @for (c of categories(); track c.id) {
+          <option [ngValue]="c.id">{{ c.icon }} {{ c.name }}</option>
+        }
+      </select>
+      <input class="input input--auto" style="height:36px" type="date" title="From" [ngModel]="filters().fromDate" (ngModelChange)="setFilter('fromDate', $event)" />
+      <input class="input input--auto" style="height:36px" type="date" title="To" [ngModel]="filters().toDate" (ngModelChange)="setFilter('toDate', $event)" />
       <div class="spacer"></div>
-
       @if (ctx.canEdit()) {
-        <button class="btn btn--sm btn--primary" type="button" (click)="creating.set(true)">
-          ＋ Add transaction
-        </button>
+        <button class="btn btn--sm btn--primary" type="button" (click)="creating.set(true)">+ Add expense</button>
       }
     </div>
 
     @if (loading()) {
-      <app-skeleton-rows />
+      <div class="card"><app-skeleton-rows /></div>
     } @else if (page(); as p) {
       @if (!p.items.length) {
-        <app-empty-state
-          title="No transactions yet"
-          text="Add what the group spends and who fronted the money — balances follow automatically."
-        >
-          @if (ctx.canEdit()) {
-            <button class="btn btn--primary" type="button" (click)="creating.set(true)">
-              ＋ Add a transaction
-            </button>
-          }
-        </app-empty-state>
+        <div class="card">
+          <app-empty-state
+            title="No expenses yet"
+            text="Add what the group spends and who fronted the money — balances follow automatically."
+            glyph="🧾"
+          >
+            @if (ctx.canEdit()) {
+              <button class="btn btn--primary" type="button" (click)="creating.set(true)">+ Add expense</button>
+            }
+          </app-empty-state>
+        </div>
       } @else {
+        <div class="card" style="overflow:hidden">
         @for (t of p.items; track t.id) {
           <div class="list-row">
             <app-category-icon [icon]="t.categoryIcon" [color]="t.categoryColor" size="lg" />
@@ -184,13 +140,16 @@ import { SplitEditorComponent } from './split-editor';
             }
           </div>
         }
+        </div>
 
-        <app-pager
-          [page]="p.pageNumber"
-          [totalPages]="p.totalPages"
-          [total]="p.totalCount"
-          (go)="goToPage($event)"
-        />
+        <div style="margin-top:14px">
+          <app-pager
+            [page]="p.pageNumber"
+            [totalPages]="p.totalPages"
+            [total]="p.totalCount"
+            (go)="goToPage($event)"
+          />
+        </div>
       }
     }
 

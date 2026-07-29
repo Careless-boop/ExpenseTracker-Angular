@@ -2,8 +2,8 @@ import { Component, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-dialog',
-  // Closes only on the ✕ button or Escape — never on a backdrop click, so a stray
-  // click outside a half-filled form can't discard it.
+  // Closes only on Escape or an explicit action — never on a backdrop click, so a
+  // stray tap outside a half-filled form can't discard it.
   host: {
     '(document:keydown.escape)': 'closed.emit()',
   },
@@ -18,10 +18,10 @@ import { Component, input, output } from '@angular/core';
       >
         <div class="dialog__head">
           <div class="dialog__title">{{ title() }}</div>
-          <button class="dialog__close" type="button" aria-label="Close" (click)="closed.emit()">
-            ✕
-          </button>
         </div>
+        @if (sub()) {
+          <div class="dialog__sub">{{ sub() }}</div>
+        }
         <div class="dialog__body">
           <ng-content />
         </div>
@@ -31,26 +31,26 @@ import { Component, input, output } from '@angular/core';
 })
 export class DialogComponent {
   readonly title = input.required<string>();
+  readonly sub = input<string>('');
   readonly size = input<'sm' | 'md' | 'lg'>('md');
   readonly closed = output<void>();
 }
 
-/** Destructive / irreversible confirmations. Gold = irreversible, red = destructive. */
+/** Confirmation dialog for destructive / irreversible actions. */
 @Component({
   selector: 'app-confirm',
   imports: [DialogComponent],
   template: `
     <app-dialog [title]="title()" size="sm" (closed)="cancelled.emit()">
-      <div class="hint" style="line-height:1.65">
+      <div class="hint" style="font-size:14px;color:var(--muted);line-height:1.55">
         <ng-content />
       </div>
       <div class="dialog__foot">
-        <button class="btn" type="button" (click)="cancelled.emit()">Cancel</button>
+        <button class="btn btn--ghost" type="button" (click)="cancelled.emit()">Cancel</button>
         <button
           class="btn"
           [class.btn--red]="tone() === 'danger'"
-          [class.btn--gold]="tone() === 'irreversible'"
-          [class.btn--primary]="tone() === 'normal'"
+          [class.btn--primary]="tone() !== 'danger'"
           type="button"
           [disabled]="busy()"
           (click)="confirmed.emit()"

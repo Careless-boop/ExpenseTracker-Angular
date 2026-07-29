@@ -1,253 +1,163 @@
-import { Component, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
 
 import { AuthService } from '../core/auth.service';
-import { ThemeService } from '../core/theme.service';
 import { initials } from '../core/format';
-import { AvatarComponent } from '../shared/ui';
+
+const TITLES: { match: RegExp; title: string }[] = [
+  { match: /^\/dashboard/, title: 'Dashboard' },
+  { match: /^\/transactions/, title: 'Transactions' },
+  { match: /^\/categories/, title: 'Categories' },
+  { match: /^\/lists\/[^/]+/, title: 'Expense list' },
+  { match: /^\/lists/, title: 'Expense lists' },
+  { match: /^\/settings/, title: 'Settings' },
+];
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, AvatarComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <header class="chrome" [class.is-open]="menuOpen()">
-      <a class="brand" routerLink="/dashboard" (click)="menuOpen.set(false)">
-        <span class="brand__coin">$</span>
-        <span class="brand__name">ExpenseTracker</span>
-      </a>
+    <div class="app">
+      <!-- mobile topbar -->
+      <div class="topbar">
+        <button class="icon-square burger" type="button" aria-label="Menu" (click)="drawerOpen.set(true)">
+          <div><span></span><span></span><span></span></div>
+        </button>
+        <div class="topbar__title">{{ title() }}</div>
+      </div>
 
-      <div class="spacer"></div>
-
-      <button
-        class="theme-toggle"
-        type="button"
-        [title]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
-        (click)="theme.toggle()"
-      >
-        {{ theme.theme() === 'dark' ? '☀' : '◐' }}
-      </button>
-
-      <!-- collapses the nav + account into a dropdown on narrow screens -->
-      <button
-        class="hamburger"
-        type="button"
-        aria-label="Menu"
-        [attr.aria-expanded]="menuOpen()"
-        (click)="menuOpen.set(!menuOpen())"
-      >
-        {{ menuOpen() ? '✕' : '☰' }}
-      </button>
-
-      <nav class="nav" (click)="menuOpen.set(false)">
-        <a routerLink="/dashboard" routerLinkActive="is-active">Dashboard</a>
-        <a routerLink="/transactions" routerLinkActive="is-active">Transactions</a>
-        <a routerLink="/categories" routerLinkActive="is-active">Categories</a>
-        <a routerLink="/lists" routerLinkActive="is-active">Expense Lists</a>
-        <a routerLink="/settings" routerLinkActive="is-active">Settings</a>
-      </nav>
-
-      @if (auth.user(); as user) {
-        <div class="account">
-          <app-avatar [name]="user.displayName || user.userName" />
-          <span class="account__name">{{ user.displayName || user.userName }}</span>
-          <button class="btn btn--xs" type="button" (click)="auth.logout()">Log out</button>
+      <!-- mobile drawer -->
+      @if (drawerOpen()) {
+        <div class="drawer-scrim" (click)="drawerOpen.set(false)">
+          <div class="drawer" (click)="$event.stopPropagation()">
+            <a class="brand" routerLink="/dashboard" (click)="drawerOpen.set(false)">
+              <span class="brand__mark"></span>
+              <span class="brand__name">ExpenseTracker</span>
+            </a>
+            @for (item of nav; track item.path) {
+              <a
+                class="nav-link"
+                [routerLink]="item.path"
+                routerLinkActive="is-active"
+                (click)="drawerOpen.set(false)"
+              >
+                {{ item.label }}
+              </a>
+            }
+            <a class="nav-link" routerLink="/settings" routerLinkActive="is-active" (click)="drawerOpen.set(false)">
+              Settings
+            </a>
+            <button class="nav-link" type="button" (click)="logout()">Log out</button>
+          </div>
         </div>
       }
-    </header>
 
-    <router-outlet />
-  `,
-  styles: `
-    .chrome {
-      background: var(--chrome);
-      border-bottom: 1px solid var(--chrome-border);
-      box-shadow: 0 2px 8px rgba(20, 40, 100, 0.35);
-      padding: 10px 24px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
+      <!-- desktop sidebar -->
+      <nav class="sidebar">
+        <a class="brand" routerLink="/dashboard">
+          <span class="brand__mark"></span>
+          <span class="brand__name">ExpenseTracker</span>
+        </a>
 
-    /* Desktop order: brand · nav · spacer · theme · account (hamburger hidden). */
-    .brand {
-      order: 1;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-    }
+        <a class="nav-add" routerLink="/transactions">
+          <span style="font-size:18px;line-height:1">+</span> Add expense
+        </a>
 
-    .nav {
-      order: 2;
-    }
+        <a class="nav-link" routerLink="/dashboard" routerLinkActive="is-active">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <circle cx="9" cy="9" r="6.5" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-dasharray="30 11" transform="rotate(-45 9 9)" />
+          </svg>
+          Dashboard
+        </a>
 
-    .spacer {
-      order: 3;
-    }
+        <div class="nav-section">PERSONAL</div>
+        <a class="nav-link" routerLink="/transactions" routerLinkActive="is-active">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <rect x="2" y="3" width="14" height="2.6" rx="1.3" fill="currentColor" />
+            <rect x="2" y="7.7" width="10" height="2.6" rx="1.3" fill="currentColor" />
+            <rect x="2" y="12.4" width="13" height="2.6" rx="1.3" fill="currentColor" />
+          </svg>
+          Transactions
+        </a>
+        <a class="nav-link" routerLink="/categories" routerLinkActive="is-active">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <rect x="2" y="2" width="6" height="6" rx="2" fill="currentColor" />
+            <rect x="10" y="2" width="6" height="6" rx="3" fill="currentColor" />
+            <rect x="2" y="10" width="6" height="6" rx="3" fill="currentColor" />
+            <rect x="10" y="10" width="6" height="6" rx="2" fill="currentColor" />
+          </svg>
+          Categories
+        </a>
 
-    .theme-toggle {
-      order: 4;
-    }
+        <div class="nav-section">SHARED</div>
+        <a class="nav-link" routerLink="/lists" routerLinkActive="is-active">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <circle cx="6.5" cy="7" r="3.4" fill="currentColor" />
+            <circle cx="12.5" cy="7" r="3.4" fill="currentColor" opacity=".55" />
+            <rect x="2.5" y="11.5" width="13" height="4" rx="2" fill="currentColor" opacity=".8" />
+          </svg>
+          Expense lists
+        </a>
 
-    .account {
-      order: 6;
-    }
+        <div class="sidebar__foot">
+          <a class="nav-link" routerLink="/settings" routerLinkActive="is-active">
+            <svg width="18" height="18" viewBox="0 0 18 18">
+              <rect x="2" y="4" width="14" height="2.4" rx="1.2" fill="currentColor" />
+              <circle cx="12" cy="5.2" r="2.6" fill="currentColor" />
+              <rect x="2" y="11.5" width="14" height="2.4" rx="1.2" fill="currentColor" />
+              <circle cx="6" cy="12.7" r="2.6" fill="currentColor" />
+            </svg>
+            Settings
+          </a>
+          @if (auth.user(); as user) {
+            <div class="sidebar__user">
+              <span class="avatar" style="background:#e8d9c4;color:#7a6a50">{{ initials(user.displayName || user.userName) }}</span>
+              <div style="min-width:0">
+                <div class="name">{{ user.displayName || user.userName }}</div>
+                <div class="email">{{ user.email }}</div>
+              </div>
+              <button class="out" type="button" title="Log out" (click)="logout()">Out</button>
+            </div>
+          }
+        </div>
+      </nav>
 
-    /* the hamburger only appears once the nav collapses (see media query) */
-    .hamburger {
-      order: 5;
-      display: none;
-      width: 38px;
-      height: 34px;
-      border-radius: var(--radius-sm);
-      background: rgba(255, 255, 255, 0.18);
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    .brand__coin {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: var(--grad-coin);
-      border: 1px solid var(--grad-gold-border);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 3px rgba(0, 0, 0, 0.35);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-head);
-      font-weight: bold;
-      font-size: 18px;
-      color: var(--coin-ink);
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
-    }
-
-    .brand__name {
-      font-family: var(--font-head);
-      font-weight: bold;
-      font-size: 18px;
-      color: #fff;
-      text-shadow: 0 1px 2px rgba(10, 30, 80, 0.6);
-    }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-
-      a {
-        padding: 7px 16px;
-        border-radius: var(--pill);
-        color: #dce8ff;
-        font-size: 13px;
-        font-weight: bold;
-        text-decoration: none;
-        text-shadow: 0 1px 1px rgba(10, 30, 80, 0.5);
-        border: 1px solid transparent;
-
-        &:hover {
-          background: rgba(255, 255, 255, 0.15);
-          color: #fff;
-        }
-
-        &.is-active {
-          background: linear-gradient(180deg, #ffffff 0%, #e2edff 50%, #c6dafa 51%, #e8f1ff 100%);
-          border-color: #9fb6e4;
-          color: #16337a;
-          text-shadow: none;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(10, 30, 80, 0.3);
-        }
-      }
-    }
-
-    .theme-toggle {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.18);
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      color: #fff;
-      font-size: 13px;
-      cursor: pointer;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.3);
-      }
-    }
-
-    .account {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .account__name {
-      color: #fff;
-      font-size: 13px;
-      font-weight: bold;
-      text-shadow: 0 1px 1px rgba(10, 30, 80, 0.5);
-    }
-
-    /* ---- Mobile: collapse nav + account into a dropdown under the header ---- */
-    @media (max-width: 860px) {
-      .chrome {
-        padding: 10px 16px;
-        gap: 12px;
-      }
-
-      .hamburger {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      /* nav and account drop to their own full-width rows, shown only when open */
-      .nav,
-      .account {
-        order: 7;
-        flex-basis: 100%;
-        display: none;
-      }
-
-      .chrome.is-open .nav {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 4px;
-        padding-top: 6px;
-      }
-
-      .chrome.is-open .nav a {
-        padding: 11px 14px;
-      }
-
-      .chrome.is-open .account {
-        display: flex;
-        border-top: 1px solid rgba(255, 255, 255, 0.25);
-        padding-top: 12px;
-        margin-top: 4px;
-      }
-
-      .account__name {
-        flex: 1;
-      }
-    }
-
-    @media (max-width: 380px) {
-      .brand__name {
-        display: none;
-      }
-    }
+      <main class="main">
+        <router-outlet />
+      </main>
+    </div>
   `,
 })
 export class ShellComponent {
   protected readonly auth = inject(AuthService);
-  protected readonly theme = inject(ThemeService);
+  private readonly router = inject(Router);
   protected readonly initials = initials;
 
-  protected readonly menuOpen = signal(false);
+  protected readonly drawerOpen = signal(false);
+  private readonly url = signal(this.router.url);
+
+  protected readonly nav = [
+    { path: '/dashboard', label: 'Dashboard' },
+    { path: '/transactions', label: 'Transactions' },
+    { path: '/categories', label: 'Categories' },
+    { path: '/lists', label: 'Expense lists' },
+  ];
+
+  protected readonly title = computed(() => {
+    const url = this.url();
+    return TITLES.find((t) => t.match.test(url))?.title ?? 'ExpenseTracker';
+  });
+
+  constructor() {
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => this.url.set(e.urlAfterRedirects));
+  }
+
+  protected logout(): void {
+    this.drawerOpen.set(false);
+    this.auth.logout();
+  }
 }

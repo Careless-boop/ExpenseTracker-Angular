@@ -10,60 +10,78 @@ import { ExpenseList } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { UserPrefsService } from '../../core/user-prefs.service';
 import { DialogComponent } from '../../shared/dialog';
-import { EmptyStateComponent } from '../../shared/ui';
+
+const COVERS = [
+  'linear-gradient(120deg,#F3D9C8,#E9B99C)',
+  'linear-gradient(120deg,#DCE8D2,#B9CFA6)',
+  'linear-gradient(120deg,#D8E4EC,#A9C4D4)',
+  'linear-gradient(120deg,#EDE0F0,#CDB8DA)',
+  'linear-gradient(120deg,#FBEBD2,#EED2A0)',
+];
+const LIST_EMOJI = ['✈️', '🏠', '🎾', '🏔️', '🎂', '🍽️', '🚗', '⛺', '🛒', '🎉'];
+
+function hashInt(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
 
 @Component({
   selector: 'app-lists-page',
-  imports: [FormsModule, RouterLink, DialogComponent, EmptyStateComponent],
+  imports: [FormsModule, RouterLink, DialogComponent],
   template: `
     <div class="page">
       <div class="page-head">
-        <h1 class="page-title">Expense Lists</h1>
-        <div class="spacer"></div>
-        <button class="btn btn--green" type="button" (click)="openCreate()">＋ Create list</button>
+        <div>
+          <h1 class="page-title">Expense lists</h1>
+          <div class="page-sub">Shared costs, split fairly. Settle up with the fewest transfers.</div>
+        </div>
+        <button class="btn btn--primary" type="button" style="margin-left:auto" (click)="openCreate()">
+          + New list
+        </button>
       </div>
 
       @if (loading()) {
         <div class="grid-cards">
           @for (i of [1, 2, 3]; track i) {
-            <div class="panel" style="padding:18px">
+            <div class="card" style="padding:18px">
               <div class="skeleton" style="width:60%;height:16px"></div>
               <div class="skeleton" style="width:90%;margin-top:12px"></div>
             </div>
           }
         </div>
       } @else if (!lists().length) {
-        <div class="panel">
-          <app-empty-state
-            title="No shared lists yet"
-            text="Create one for a trip, a flat, or anything you split with other people."
-            glyph="👥"
-          >
-            <button class="btn btn--green" type="button" (click)="openCreate()">
-              ＋ Create your first list
+        <div class="empty" style="max-width:520px;margin:64px auto">
+          <div class="empty__glyph">👥</div>
+          <div class="empty__title" style="font-size:22px">Split costs without the spreadsheet</div>
+          <div class="empty__text" style="max-width:400px">
+            Make a list for a trip or your flat, add expenses as they happen, and we'll work out who
+            owes whom — with the fewest possible transfers.
+          </div>
+          <div class="empty__actions">
+            <button class="btn btn--primary" type="button" (click)="openCreate()">
+              + Create your first list
             </button>
-          </app-empty-state>
+          </div>
         </div>
       } @else {
         @if (active().length) {
           <div class="grid-cards">
             @for (l of active(); track l.id) {
-              <a class="list-card" [routerLink]="['/lists', l.id]">
-                <div class="list-card__head">
-                  <span class="list-card__name">{{ l.name }}</span>
-                  <span [class]="'badge badge--' + l.currentUserRole.toLowerCase()">
-                    {{ l.currentUserRole }}
-                  </span>
+              <a class="lcard" [routerLink]="['/lists', l.id]">
+                <div class="lcard__cover" [style.background]="cover(l.id)">
+                  <div class="lcard__emoji">{{ emoji(l.id) }}</div>
+                  <span class="lcard__role">{{ l.currentUserRole }}</span>
                 </div>
-                <div class="list-card__body">
-                  <div class="hint">{{ l.description || 'No description.' }}</div>
-                  <div class="list-card__meta">
-                    <span>{{ l.memberCount }} {{ l.memberCount === 1 ? 'member' : 'members' }}</span>
-                    <span>·</span>
-                    <span>
-                      {{ l.transactionCount }}
-                      {{ l.transactionCount === 1 ? 'transaction' : 'transactions' }}
-                    </span>
+                <div class="lcard__body">
+                  <div style="font-weight:800;font-size:16px">{{ l.name }}</div>
+                  <div class="page-sub" style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    {{ l.description || 'No description' }}
+                  </div>
+                  <div class="lcard__meta">
+                    <span class="badge">{{ l.currency }}</span>
+                    {{ l.memberCount }} {{ l.memberCount === 1 ? 'person' : 'people' }} ·
+                    {{ l.transactionCount }} {{ l.transactionCount === 1 ? 'expense' : 'expenses' }}
                   </div>
                 </div>
               </a>
@@ -71,23 +89,21 @@ import { EmptyStateComponent } from '../../shared/ui';
           </div>
         }
 
-        <!-- closed lists are frozen; group them apart -->
         @if (closed().length) {
-          <div class="panel__label" style="margin-top:6px">Closed</div>
+          <div class="row" style="gap:10px;margin-top:6px">
+            <div class="section-label">CLOSED</div>
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+          </div>
           <div class="grid-cards">
             @for (l of closed(); track l.id) {
-              <a class="list-card is-closed" [routerLink]="['/lists', l.id]">
-                <div class="list-card__head">
-                  <span class="list-card__name">{{ l.name }}</span>
-                  <span class="badge badge--closed">Closed</span>
-                </div>
-                <div class="list-card__body">
-                  <div class="hint">Closed on {{ date(l.closedAt!) }}</div>
-                  <div class="list-card__meta">
-                    <span>{{ l.memberCount }} {{ l.memberCount === 1 ? 'member' : 'members' }}</span>
-                    <span>·</span>
-                    <span>{{ l.transactionCount }} transactions</span>
+              <a class="lcard-closed" [routerLink]="['/lists', l.id]">
+                <div class="cat-icon cat-icon--lg" style="background:#f1ece4;filter:grayscale(.4)">{{ emoji(l.id) }}</div>
+                <div style="min-width:0;flex:1">
+                  <div class="row" style="gap:8px">
+                    <div style="font-weight:800;font-size:14.5px;color:#6e6355">{{ l.name }}</div>
+                    <span class="badge badge--closed">Closed</span>
                   </div>
+                  <div class="page-sub" style="margin-top:2px">Closed {{ date(l.closedAt!) }} · {{ l.memberCount }} people</div>
                 </div>
               </a>
             }
@@ -97,16 +113,21 @@ import { EmptyStateComponent } from '../../shared/ui';
     </div>
 
     @if (creating()) {
-      <app-dialog title="Create expense list" size="sm" (closed)="creating.set(false)">
+      <app-dialog
+        title="New expense list"
+        sub="You'll be the owner. Add people after it's created."
+        size="sm"
+        (closed)="creating.set(false)"
+      >
         <div class="field">
-          <label class="field__label">Name <span>(≤ 200)</span></label>
+          <label class="label">Name</label>
           <input
             class="input"
             [class.is-invalid]="fieldError('name')"
             type="text"
             maxlength="200"
             [(ngModel)]="name"
-            placeholder="Whistler Ski Trip 2026"
+            placeholder="e.g. Flat 12 bills"
           />
           @if (fieldError('name'); as msg) {
             <div class="field__error">{{ msg }}</div>
@@ -114,29 +135,29 @@ import { EmptyStateComponent } from '../../shared/ui';
         </div>
 
         <div class="field">
-          <label class="field__label">Description <span>(≤ 1000, optional)</span></label>
-          <textarea class="input" rows="3" maxlength="1000" [(ngModel)]="description"></textarea>
+          <label class="label">Description <span>(optional)</span></label>
+          <input class="input" type="text" maxlength="1000" [(ngModel)]="description" placeholder="What's it for?" />
         </div>
 
-        <div class="field">
-          <label class="field__label">Cover image URL <span>(≤ 500, optional)</span></label>
-          <input class="input" type="url" maxlength="500" [(ngModel)]="coverImage" />
-        </div>
-
-        <div class="field">
-          <label class="field__label">Currency</label>
-          <select class="select" [ngModel]="currency()" (ngModelChange)="currency.set($event)">
-            @for (c of currencies; track c.code) {
-              <option [value]="c.code">{{ c.code }} · {{ c.name }} ({{ c.symbol }})</option>
-            }
-          </select>
-          <div class="hint">Defaults to your currency. Amounts aren't converted.</div>
+        <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start">
+          <div class="field field--grow">
+            <label class="label">Currency</label>
+            <select class="select" [ngModel]="currency()" (ngModelChange)="currency.set($event)">
+              @for (c of currencies; track c.code) {
+                <option [value]="c.code">{{ c.code }} ({{ c.symbol }})</option>
+              }
+            </select>
+          </div>
+          <div class="field field--grow">
+            <label class="label">Cover URL <span>(optional)</span></label>
+            <input class="input" type="url" maxlength="500" [(ngModel)]="coverImage" placeholder="https://…" />
+          </div>
         </div>
 
         <div class="dialog__foot">
-          <button class="btn" type="button" (click)="creating.set(false)">Cancel</button>
+          <button class="btn btn--ghost" type="button" (click)="creating.set(false)">Cancel</button>
           <button
-            class="btn btn--green btn--wide"
+            class="btn btn--primary btn--wide"
             type="button"
             [disabled]="busy() || !name().trim()"
             (click)="create()"
@@ -148,64 +169,79 @@ import { EmptyStateComponent } from '../../shared/ui';
     }
   `,
   styles: `
-    .list-card {
+    .lcard {
       display: block;
-      background: var(--panel);
-      background-image: var(--panel-sheen);
-      border: 1px solid var(--panel-border);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--lift), var(--panel-inset);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 18px;
       overflow: hidden;
-      text-decoration: none;
+      color: var(--ink);
+      transition: box-shadow 0.15s;
 
       &:hover {
-        box-shadow: 0 6px 18px rgba(28, 56, 120, 0.3);
-      }
-
-      &.is-closed {
-        opacity: 0.82;
+        box-shadow: 0 6px 20px rgba(55, 47, 39, 0.09);
       }
     }
 
-    .list-card__head {
-      background: var(--chrome);
-      padding: 10px 16px;
+    .lcard__cover {
+      height: 74px;
+      position: relative;
+    }
+
+    .lcard__emoji {
+      position: absolute;
+      left: 18px;
+      bottom: -18px;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+    }
+
+    .lcard__role {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      padding: 3px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.85);
+      font-size: 11px;
+      font-weight: 800;
+      color: #7a6a50;
+      text-transform: uppercase;
+    }
+
+    .lcard__body {
+      padding: 26px 18px 16px;
+    }
+
+    .lcard__meta {
       display: flex;
       align-items: center;
-      gap: 10px;
-    }
-
-    .is-closed .list-card__head {
-      background: var(--grad-gold);
-    }
-
-    .list-card__name {
-      flex: 1;
-      font-family: var(--font-head);
-      font-weight: bold;
-      font-size: 14px;
-      color: #fff;
-      text-shadow: 0 1px 2px rgba(10, 30, 80, 0.6);
-    }
-
-    .is-closed .list-card__name {
-      color: var(--gold-ink);
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-    }
-
-    .list-card__body {
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
       gap: 8px;
+      margin-top: 12px;
+      font-size: 12.5px;
+      color: var(--muted);
+      font-weight: 600;
     }
 
-    .list-card__meta {
+    .lcard-closed {
       display: flex;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: bold;
-      color: var(--label);
+      align-items: center;
+      gap: 14px;
+      background: #fdfbf7;
+      border: 1px dashed #e3d5c2;
+      border-radius: 16px;
+      padding: 16px 18px;
+      color: var(--ink);
+
+      &:hover {
+        background: #f8f2e9;
+      }
     }
   `,
 })
@@ -229,6 +265,14 @@ export class ListsPageComponent {
   protected readonly currency = signal('USD');
 
   protected readonly date = longDate;
+
+  // The API stores no per-list emoji/cover; derive a stable one from the id.
+  protected cover(id: string): string {
+    return COVERS[hashInt(id) % COVERS.length];
+  }
+  protected emoji(id: string): string {
+    return LIST_EMOJI[hashInt(id) % LIST_EMOJI.length];
+  }
 
   protected readonly active = computed(() => this.lists().filter((l) => !l.closedAt));
   protected readonly closed = computed(() => this.lists().filter((l) => !!l.closedAt));

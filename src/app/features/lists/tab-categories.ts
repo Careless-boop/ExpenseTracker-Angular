@@ -16,15 +16,11 @@ import { ListContext } from './list-context';
   selector: 'app-tab-categories',
   imports: [CategoryManagerComponent],
   template: `
-    <div class="panel__head">
-      <div class="panel__title">Categories</div>
-      <div class="spacer"></div>
-      @if (ctx.canEdit()) {
-        <button class="btn btn--sm btn--green" type="button" (click)="manager()?.openCreate()">
-          ＋ New category
-        </button>
-      }
-    </div>
+    @if (ctx.canEdit()) {
+      <div class="row" style="justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn--sm btn--ghost" type="button" (click)="manager()?.openCreate()">+ New category</button>
+      </div>
+    }
 
     <app-category-manager
       [categories]="categories()"
